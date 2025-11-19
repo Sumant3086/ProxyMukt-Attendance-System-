@@ -8,14 +8,24 @@ export default function NotificationCenter() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    // Load notifications from localStorage
-    const stored = localStorage.getItem('notifications');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      setNotifications(parsed);
-      setUnreadCount(parsed.filter(n => !n.read).length);
-    }
+    fetchNotifications();
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      // Use axios instance which handles auth automatically
+      const axiosInstance = (await import('../utils/axiosInstance.js')).default;
+      const { data } = await axiosInstance.get('/notifications');
+      setNotifications(data.data.notifications);
+      setUnreadCount(data.data.unreadCount);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      // If error, just keep existing notifications
+    }
+  };
 
   const addNotification = (notification) => {
     const newNotif = {
@@ -39,20 +49,24 @@ export default function NotificationCenter() {
     }
   };
 
-  const markAsRead = (id) => {
-    const updated = notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    );
-    setNotifications(updated);
-    setUnreadCount(updated.filter(n => !n.read).length);
-    localStorage.setItem('notifications', JSON.stringify(updated));
+  const markAsRead = async (id) => {
+    try {
+      const axiosInstance = (await import('../utils/axiosInstance.js')).default;
+      await axiosInstance.put(`/notifications/${id}/read`);
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }));
-    setNotifications(updated);
-    setUnreadCount(0);
-    localStorage.setItem('notifications', JSON.stringify(updated));
+  const markAllAsRead = async () => {
+    try {
+      const axiosInstance = (await import('../utils/axiosInstance.js')).default;
+      await axiosInstance.put('/notifications/read-all');
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   };
 
   const deleteNotification = (id) => {
@@ -153,11 +167,11 @@ export default function NotificationCenter() {
                   <div className="p-2 space-y-2">
                     {notifications.map((notif) => (
                       <motion.div
-                        key={notif.id}
+                        key={notif._id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
-                        onClick={() => !notif.read && markAsRead(notif.id)}
+                        onClick={() => !notif.read && markAsRead(notif._id)}
                         className={`p-3 rounded-xl border cursor-pointer transition-all ${
                           notif.read 
                             ? 'bg-gray-50 dark:bg-gray-800/50 opacity-60' 
@@ -174,18 +188,12 @@ export default function NotificationCenter() {
                               {notif.message}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                              {new Date(notif.timestamp).toLocaleString()}
+                              {new Date(notif.createdAt).toLocaleString()}
                             </p>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNotification(notif.id);
-                            }}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <X size={16} />
-                          </button>
+                          {!notif.read && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1" />
+                          )}
                         </div>
                       </motion.div>
                     ))}

@@ -27,14 +27,50 @@ export default function StudentDashboard() {
     }
   }, [isAuthenticated]);
   
+  const [stats, setStats] = useState({
+    totalSessions: 0,
+    attendedSessions: 0,
+    percentage: 0,
+  });
+
   const fetchData = async () => {
     try {
       const [classesRes, attendanceRes] = await Promise.all([
         axiosInstance.get('/classes'),
         axiosInstance.get('/attendance/my-attendance'),
       ]);
-      setClasses(classesRes.data.data.classes || []);
-      setAttendance(attendanceRes.data.data.attendance || []);
+      
+      const classesData = classesRes.data.data.classes || [];
+      const attendanceData = attendanceRes.data.data.attendance || [];
+      
+      setClasses(classesData);
+      setAttendance(attendanceData);
+      
+      // Calculate attendance statistics
+      // Get all sessions for enrolled classes
+      let totalSessions = 0;
+      for (const cls of classesData) {
+        try {
+          const sessionsRes = await axiosInstance.get(`/sessions?classId=${cls._id}`);
+          const completedSessions = sessionsRes.data.data.sessions.filter(
+            s => s.status === 'COMPLETED' || s.status === 'LIVE'
+          );
+          totalSessions += completedSessions.length;
+        } catch (error) {
+          console.error('Error fetching sessions:', error);
+        }
+      }
+      
+      const attendedSessions = attendanceData.length;
+      const percentage = totalSessions > 0 
+        ? Math.round((attendedSessions / totalSessions) * 100)
+        : 0;
+      
+      setStats({
+        totalSessions,
+        attendedSessions,
+        percentage,
+      });
     } catch (error) {
       console.error('Error fetching data:', error);
       // If unauthorized, redirect to login
@@ -108,11 +144,11 @@ export default function StudentDashboard() {
               <StatsCard
                 icon={TrendingUp}
                 title="Avg Attendance"
-                value="85%"
-                subtitle="Keep it up!"
-                color="orange"
+                value={`${stats.percentage}%`}
+                subtitle={stats.percentage >= 75 ? 'Keep it up!' : stats.percentage >= 60 ? 'Needs improvement' : 'At risk!'}
+                color={stats.percentage >= 75 ? 'green' : stats.percentage >= 60 ? 'orange' : 'red'}
                 delay={0.2}
-                trend={8}
+                trend={stats.percentage >= 75 ? 8 : stats.percentage >= 60 ? 0 : -5}
               />
             </div>
             

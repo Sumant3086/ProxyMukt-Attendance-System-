@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import axiosInstance from '../utils/axiosInstance';
 import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle } from 'lucide-react';
+import { getDeviceInfo } from '../utils/deviceFingerprint';
 
 export default function ScanQR() {
   const navigate = useNavigate();
@@ -130,9 +131,13 @@ export default function ScanQR() {
       
       setMessage('Marking attendance...');
       
+      // Get device information
+      const deviceInfo = getDeviceInfo();
+      
       const { data } = await axiosInstance.post('/attendance/mark', {
         qrToken,
         location: locationData,
+        deviceInfo,
       });
       
       setMessage(data.message);

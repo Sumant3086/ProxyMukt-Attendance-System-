@@ -25,6 +25,8 @@ export default function FacultyDashboard() {
   const [sessionData, setSessionData] = useState({
     title: '',
     location: null,
+    sessionType: 'offline', // 'offline' or 'online'
+    onlinePlatform: 'ZOOM', // 'ZOOM', 'GOOGLE_MEET', 'TEAMS'
   });
   
   useEffect(() => {
@@ -37,8 +39,27 @@ export default function FacultyDashboard() {
         axiosInstance.get('/classes'),
         axiosInstance.get('/sessions'),
       ]);
-      setClasses(classesRes.data.data.classes);
-      setSessions(sessionsRes.data.data.sessions);
+      
+      // Filter classes to only show those with LIVE sessions
+      const allClasses = classesRes.data.data.classes;
+      const allSessions = sessionsRes.data.data.sessions;
+      
+      // Get classes with live sessions
+      const liveSessionClassIds = allSessions
+        .filter(s => s.status === 'LIVE')
+        .map(s => s.class?._id || s.class);
+      
+      // Separate classes into live and non-live
+      const classesWithLiveSessions = allClasses.filter(c => 
+        liveSessionClassIds.includes(c._id)
+      );
+      const classesWithoutLiveSessions = allClasses.filter(c => 
+        !liveSessionClassIds.includes(c._id)
+      );
+      
+      // Show live sessions first, then others
+      setClasses([...classesWithLiveSessions, ...classesWithoutLiveSessions]);
+      setSessions(allSessions);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -62,6 +83,8 @@ export default function FacultyDashboard() {
     setSessionData({
       title: `${cls.name} - Lecture`,
       location: null,
+      sessionType: 'offline', // Default to offline
+      onlinePlatform: 'ZOOM', // Default to Zoom
     });
     setShowStartSession(true);
   };
@@ -69,15 +92,69 @@ export default function FacultyDashboard() {
   const handleStartSession = async (e) => {
     e.preventDefault();
     try {
+      // Create regular session first
       const { data } = await axiosInstance.post('/sessions', {
         classId: selectedClass._id,
         title: sessionData.title,
         date: new Date(),
         startTime: new Date(),
-        location: sessionData.location,
+        location: sessionData.sessionType === 'offline' ? sessionData.location : null,
       });
-      setShowStartSession(false);
-      navigate(`/session/${data.data.session._id}`);
+
+      const sessionId = data.data.session._id;
+
+      // If online session, create Zoom/Meet/Teams meeting
+      if (sessionData.sessionType === 'online') {
+        if (sessionData.onlinePlatform === 'ZOOM') {
+          try {
+            const zoomRes = await axiosInstance.post('/zoom/create', {
+              sessionId,
+              topic: sessionData.title,
+              duration: 60,
+            });
+            
+            // Navigate to monitor page
+            setShowStartSession(false);
+            navigate(`/online-session-monitor/${zoomRes.data.data.onlineSession._id}`);
+          } catch (zoomError) {
+            // If Zoom creation fails, show error and offer manual option
+            const errorMsg = zoomError.response?.data?.message || 'Failed to create Zoom meeting';
+            const useManual = confirm(
+              `${errorMsg}\n\nWould you like to create a manual online session instead? You can add your Zoom link manually.`
+            );
+            
+            if (useManual) {
+              // Create generic online session
+              const onlineRes = await axiosInstance.post('/online-sessions', {
+                sessionId,
+                platform: 'ZOOM',
+                meetingLink: '', // Faculty can add manually
+              });
+              
+              setShowStartSession(false);
+              navigate(`/online-session-monitor/${onlineRes.data.data.onlineSession._id}`);
+            } else {
+              // Cancel and go to regular session
+              setShowStartSession(false);
+              navigate(`/session/${sessionId}`);
+            }
+          }
+        } else {
+          // For other platforms, create generic online session
+          const onlineRes = await axiosInstance.post('/online-sessions', {
+            sessionId,
+            platform: sessionData.onlinePlatform,
+            meetingLink: '', // Faculty can add manually
+          });
+          
+          setShowStartSession(false);
+          navigate(`/online-session-monitor/${onlineRes.data.data.onlineSession._id}`);
+        }
+      } else {
+        // Offline session - navigate to QR code page
+        setShowStartSession(false);
+        navigate(`/session/${sessionId}`);
+      }
     } catch (error) {
       console.error('Error starting session:', error);
       alert('Failed to start session: ' + (error.response?.data?.message || error.message));
@@ -176,10 +253,65 @@ export default function FacultyDashboard() {
                       />
                     </div>
 
-                    <LocationPicker
-                      value={sessionData.location}
-                      onChange={(location) => setSessionData({ ...sessionData, location })}
-                    />
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Session Type</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setSessionData({ ...sessionData, sessionType: 'offline' })}
+                          className={`p-4 border-2 rounded-lg transition-all ${
+                            sessionData.sessionType === 'offline'
+                              ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                              : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        >
+                          <div className="text-2xl mb-2">🏫</div>
+                          <div className="font-semibold">Offline Class</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">QR Code Attendance</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSessionData({ ...sessionData, sessionType: 'online' })}
+                          className={`p-4 border-2 rounded-lg transition-all ${
+                            sessionData.sessionType === 'online'
+                              ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                              : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        >
+                          <div className="text-2xl mb-2">💻</div>
+                          <div className="font-semibold">Online Class</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">Zoom/Meet/Teams</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {sessionData.sessionType === 'online' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Online Platform</label>
+                        <select
+                          value={sessionData.onlinePlatform}
+                          onChange={(e) => setSessionData({ ...sessionData, onlinePlatform: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="ZOOM">🎥 Zoom (Auto-create meeting)</option>
+                          <option value="GOOGLE_MEET">📹 Google Meet</option>
+                          <option value="TEAMS">💼 Microsoft Teams</option>
+                          <option value="WEBRTC">🌐 Custom Platform</option>
+                        </select>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                          {sessionData.onlinePlatform === 'ZOOM' 
+                            ? '✨ Zoom meeting will be created automatically with attendance tracking'
+                            : 'You can add meeting link after creation'}
+                        </p>
+                      </div>
+                    )}
+
+                    {sessionData.sessionType === 'offline' && (
+                      <LocationPicker
+                        value={sessionData.location}
+                        onChange={(location) => setSessionData({ ...sessionData, location })}
+                      />
+                    )}
 
                     <div className="flex space-x-2">
                       <button 

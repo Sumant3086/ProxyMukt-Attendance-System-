@@ -46,13 +46,22 @@ export default function StartSession() {
       setSession(data.data.session);
       
       if (data.data.session.status !== 'LIVE') {
-        await axiosInstance.post(`/sessions/${id}/start`);
-        const updated = await axiosInstance.get(`/sessions/${id}`);
-        setSession(updated.data.data.session);
+        try {
+          await axiosInstance.post(`/sessions/${id}/start`);
+          const updated = await axiosInstance.get(`/sessions/${id}`);
+          setSession(updated.data.data.session);
+        } catch (startError) {
+          // If session is already live, just continue
+          if (startError.response?.status === 400) {
+            console.log('Session already live, continuing...');
+          } else {
+            throw startError;
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching session:', error);
-      if (error.response?.status === 404 || error.response?.status === 400) {
+      if (error.response?.status === 404) {
         alert('Session not found. Redirecting to dashboard...');
         navigate('/faculty');
       }

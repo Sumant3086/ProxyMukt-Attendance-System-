@@ -83,14 +83,26 @@ export const getAttendanceAnalytics = async (req, res) => {
       date: { $gte: thirtyDaysAgo }
     }).sort('date');
     
-    const dailyTrend = recentSessions.map(session => ({
-      date: session.date,
-      attendance: session.attendanceCount,
-      total: session.totalStudents,
-      percentage: session.totalStudents > 0 
-        ? ((session.attendanceCount / session.totalStudents) * 100).toFixed(2)
+    // Group sessions by date
+    const dailyData = {};
+    recentSessions.forEach(session => {
+      const dateKey = session.date.toISOString().split('T')[0]; // YYYY-MM-DD
+      if (!dailyData[dateKey]) {
+        dailyData[dateKey] = { attendance: 0, total: 0 };
+      }
+      dailyData[dateKey].attendance += session.attendanceCount;
+      dailyData[dateKey].total += session.totalStudents;
+    });
+    
+    // Convert to array and calculate percentages
+    const dailyTrend = Object.entries(dailyData).map(([date, data]) => ({
+      date: new Date(date),
+      attendance: data.attendance,
+      total: data.total,
+      percentage: data.total > 0 
+        ? ((data.attendance / data.total) * 100).toFixed(2)
         : 0
-    }));
+    })).sort((a, b) => a.date - b.date);
     
     res.json({
       success: true,

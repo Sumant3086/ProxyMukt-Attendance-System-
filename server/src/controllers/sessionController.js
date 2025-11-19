@@ -2,6 +2,7 @@ import Session from '../models/Session.js';
 import Class from '../models/Class.js';
 import Attendance from '../models/Attendance.js';
 import { generateQRToken } from '../utils/qr.js';
+import { notifySessionStarted, notifySessionEnded } from '../utils/notificationService.js';
 
 /**
  * Create new session
@@ -77,6 +78,9 @@ export const startSession = async (req, res) => {
     session.startTime = new Date();
     await session.save();
     
+    // Notify all students in the class
+    await notifySessionStarted(session);
+    
     res.json({
       success: true,
       message: 'Session started successfully',
@@ -107,6 +111,9 @@ export const endSession = async (req, res) => {
     session.status = 'COMPLETED';
     session.endTime = new Date();
     await session.save();
+    
+    // Notify all students that session ended
+    await notifySessionEnded(session);
     
     res.json({
       success: true,

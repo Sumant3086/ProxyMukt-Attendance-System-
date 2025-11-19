@@ -1,8 +1,12 @@
 import Attendance from '../models/Attendance.js';
 import Session from '../models/Session.js';
 import Class from '../models/Class.js';
-import { verifyQRToken } from '../utils/qr.js';
+import User from '../models/User.js';
+import { verifyQRToken, generateQRToken } from '../utils/qr.js';
 import { verifyGeofence, validateCoordinates, detectLocationSpoofing } from '../utils/geofencing.js';
+import { generateDeviceFingerprint, parseUserAgent, detectSuspiciousDevice } from '../utils/deviceFingerprint.js';
+import { checkProxyVPN } from '../utils/proxyDetection.js';
+import { createAuditLog } from '../middleware/auditLogger.js';
 
 /**
  * Check for nearby active sessions
@@ -208,15 +212,47 @@ export const markAttendance = async (req, res) => {
       });
     }
     
-    // Create attendance record with location data
+    // DEVICE FINGERPRINTING & PROXY DETECTION
+    const deviceFingerprint = generateDeviceFingerprint(req);
+    const deviceDetails = parseUserAgent(req.headers['user-agent']);
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    
+    // Check for proxy/VPN (async, don't block attendance)
+    let proxyCheck = { isProxy: false, isVPN: false, isTor: false, riskScore: 0 };
+    try {
+      proxyCheck = await checkProxyVPN(ipAddress);
+    } catch (error) {
+      console.error('Proxy check failed:', error.message);
+    }
+    
+    // Get previous devices for this student
+    const previousAttendances = await Attendance.find({
+      student: req.user._id,
+    }).limit(10).select('deviceInfo');
+    
+    const suspiciousDevice = detectSuspiciousDevice(
+      { ...deviceDetails, deviceFingerprint, ...proxyCheck },
+      previousAttendances.map(a => a.deviceInfo)
+    );
+    
+    // Create attendance record with enhanced device data
     const attendance = await Attendance.create({
       session: session._id,
       student: req.user._id,
       class: session.class._id,
       qrToken,
+      attendanceSource: 'QR',
       deviceInfo: {
         userAgent: req.headers['user-agent'],
-        ip: req.ip,
+        ip: ipAddress,
+        deviceFingerprint,
+        browser: deviceDetails.browser,
+        os: deviceDetails.os,
+        platform: deviceDetails.platform,
+        isProxy: proxyCheck.isProxy,
+        isVPN: proxyCheck.isVPN,
+        isTor: proxyCheck.isTor,
+        riskScore: Math.max(proxyCheck.riskScore, suspiciousDevice.riskScore),
       },
       location: location ? {
         latitude: location.latitude,
@@ -224,9 +260,24 @@ export const markAttendance = async (req, res) => {
         accuracy: location.accuracy,
         verified: locationVerification.verified,
         distance: locationVerification.distance,
-        suspicious: spoofingDetection.isSuspicious,
+        suspicious: spoofingDetection.isSuspicious || suspiciousDevice.isSuspicious,
       } : undefined,
     });
+    
+    // Log to audit trail
+    await createAuditLog(
+      req,
+      'ATTENDANCE_MARK',
+      'Attendance',
+      attendance._id,
+      {
+        sessionId: session._id,
+        classId: session.class._id,
+        locationVerified: locationVerification.verified,
+        deviceRiskScore: attendance.deviceInfo.riskScore,
+        suspiciousFlags: suspiciousDevice.flags,
+      }
+    );
     
     // Update session attendance count
     session.attendanceCount += 1;

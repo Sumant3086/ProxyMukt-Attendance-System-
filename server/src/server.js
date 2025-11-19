@@ -39,11 +39,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Rate limiting
+// Rate limiting - Increased limits for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP',
+  max: 500, // Increased from 100 to 500 requests per windowMs
+  message: 'Too many requests from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
@@ -52,11 +54,20 @@ app.get('/', (req, res) => {
   res.json({ message: 'Attendance System API' });
 });
 
+import auditRoutes from './routes/auditRoutes.js';
+import onlineSessionRoutes from './routes/onlineSessionRoutes.js';
+import zoomRoutes from './routes/zoomRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+
 app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/online-sessions', onlineSessionRoutes);
+app.use('/api/zoom', zoomRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handlers
 app.use(notFound);

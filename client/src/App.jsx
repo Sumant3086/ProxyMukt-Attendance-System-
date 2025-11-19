@@ -12,6 +12,9 @@ import ScanQR from './pages/ScanQR';
 import AutoAttendance from './pages/AutoAttendance';
 import Analytics from './pages/Analytics';
 import StudentAnalytics from './pages/StudentAnalytics';
+import AuditLogs from './pages/AuditLogs';
+import OnlineSession from './pages/OnlineSession';
+import OnlineSessionMonitor from './pages/OnlineSessionMonitor';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, isAuthenticated } = useAuthStore();
@@ -130,6 +133,33 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['STUDENT']}>
               <StudentAttendance />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/audit-logs"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <AuditLogs />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/online-session/:id"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT', 'FACULTY', 'ADMIN']}>
+              <OnlineSession />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/online-session-monitor/:id"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY', 'ADMIN']}>
+              <OnlineSessionMonitor />
             </ProtectedRoute>
           }
         />

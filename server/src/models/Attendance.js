@@ -33,6 +33,14 @@ const attendanceSchema = new mongoose.Schema(
     deviceInfo: {
       userAgent: String,
       ip: String,
+      deviceFingerprint: String,
+      browser: String,
+      os: String,
+      platform: String,
+      isProxy: Boolean,
+      isVPN: Boolean,
+      isTor: Boolean,
+      riskScore: Number,
     },
     location: {
       latitude: Number,
@@ -41,6 +49,17 @@ const attendanceSchema = new mongoose.Schema(
       verified: Boolean,
       distance: Number, // Distance from session location in meters
       suspicious: Boolean, // Flag for suspicious location data
+    },
+    attendanceSource: {
+      type: String,
+      enum: ['QR', 'FACE', 'ZOOM', 'GOOGLE_MEET', 'TEAMS', 'WEBRTC'],
+      default: 'QR',
+    },
+    onlineSessionData: {
+      joinTime: Date,
+      leaveTime: Date,
+      duration: Number, // minutes
+      engagementScore: Number,
     },
   },
   {

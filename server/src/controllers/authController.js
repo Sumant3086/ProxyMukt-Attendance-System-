@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/generateToken.js';
+import { createAuditLog } from '../middleware/auditLogger.js';
 
 /**
  * Register new user
@@ -58,6 +59,15 @@ export const register = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     
+    // Log registration
+    await createAuditLog(
+      { ...req, user: { _id: user._id } },
+      'REGISTER',
+      'User',
+      user._id,
+      { role: user.role, email: user.email }
+    );
+    
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -82,18 +92,25 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     
+    console.log('Login attempt:', { email, passwordLength: password?.length });
+    
     // Find user with password field
     const user = await User.findOne({ email }).select('+password');
     
     if (!user || !user.isActive) {
+      console.log('User not found or inactive:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials',
       });
     }
     
+    console.log('User found:', { email: user.email, role: user.role });
+    
     // Check password
     const isPasswordValid = await user.comparePassword(password);
+    
+    console.log('Password valid:', isPasswordValid);
     
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -121,6 +138,17 @@ export const login = async (req, res) => {
     // Remove password from response
     user.password = undefined;
     
+    console.log('Login successful, sending response');
+    
+    // Log successful login
+    await createAuditLog(
+      { ...req, user: { _id: user._id } },
+      'LOGIN',
+      'User',
+      user._id,
+      { role: user.role, email: user.email }
+    );
+    
     res.json({
       success: true,
       message: 'Login successful',
@@ -130,6 +158,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -199,6 +228,15 @@ export const logout = async (req, res) => {
     
     // Clear cookie
     res.clearCookie('refreshToken');
+    
+    // Log logout
+    await createAuditLog(
+      req,
+      'LOGOUT',
+      'User',
+      req.user._id,
+      { email: req.user.email }
+    );
     
     res.json({
       success: true,

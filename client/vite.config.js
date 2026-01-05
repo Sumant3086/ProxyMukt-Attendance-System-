@@ -12,4 +12,19 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          ui: ['framer-motion', 'lucide-react'],
+          charts: ['recharts'],
+          socket: ['socket.io-client'],
+          utils: ['axios', 'zustand'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 2000, // Increased to suppress warnings
+  },
 });

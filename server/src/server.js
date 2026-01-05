@@ -13,6 +13,11 @@ import classRoutes from './routes/classRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import auditRoutes from './routes/auditRoutes.js';
+import onlineSessionRoutes from './routes/onlineSessionRoutes.js';
+import zoomRoutes from './routes/zoomRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { generateQRToken, getQRRotationInterval } from './utils/qr.js';
 
 dotenv.config();
@@ -54,13 +59,15 @@ app.get('/', (req, res) => {
   res.json({ message: 'Attendance System API' });
 });
 
-import auditRoutes from './routes/auditRoutes.js';
-import onlineSessionRoutes from './routes/onlineSessionRoutes.js';
-import zoomRoutes from './routes/zoomRoutes.js';
-import notificationRoutes from './routes/notificationRoutes.js';
-import adminRoutes from './routes/adminRoutes.js';
+// Test route
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'API is working', timestamp: new Date().toISOString() });
+});
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', (req, res, next) => {
+  console.log('Auth route accessed:', req.method, req.path);
+  next();
+}, authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/attendance', attendanceRoutes);

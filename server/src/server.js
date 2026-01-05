@@ -60,7 +60,11 @@ app.use('/api/', limiter);
 
 // Routes
 app.get('/', (req, res) => {
-  res.json({ message: 'Attendance System API' });
+  res.json({ 
+    message: 'Attendance System API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Test route
@@ -128,6 +132,12 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
+
+console.log('🔧 Server configuration:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- PORT:', PORT);
+console.log('- CLIENT_URL:', process.env.CLIENT_URL);
+console.log('- Static file serving: DISABLED for backend-only deployment');
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

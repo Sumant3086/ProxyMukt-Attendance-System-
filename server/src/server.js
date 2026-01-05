@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
@@ -14,6 +16,9 @@ import sessionRoutes from './routes/sessionRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import { generateQRToken, getQRRotationInterval } from './utils/qr.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -70,6 +75,19 @@ app.use('/api/online-sessions', onlineSessionRoutes);
 app.use('/api/zoom', zoomRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Serve static files from React build in production
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.join(__dirname, '../../client/dist');
+  app.use(express.static(clientBuildPath));
+  
+  // Handle client-side routing - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(clientBuildPath, 'index.html'));
+    }
+  });
+}
 
 // Error handlers
 app.use(notFound);

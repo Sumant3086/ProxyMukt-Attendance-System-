@@ -22,6 +22,7 @@ import alertRoutes from './routes/alertRoutes.js';
 import appealRoutes from './routes/appealRoutes.js';
 import ipWhitelistRoutes from './routes/ipWhitelistRoutes.js';
 import { generateQRToken, getQRRotationInterval } from './utils/qr.js';
+import { setIO } from './utils/ioManager.js';
 
 dotenv.config();
 
@@ -40,6 +41,9 @@ const io = new Server(httpServer, {
 
 // Connect to database
 connectDB();
+
+// Set global io instance
+setIO(io);
 
 // Middleware
 app.use(helmet());

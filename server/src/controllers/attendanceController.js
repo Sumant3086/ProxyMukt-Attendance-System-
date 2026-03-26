@@ -11,7 +11,7 @@ import { checkProxyVPN } from '../utils/proxyDetection.js';
 import { detectResidentialProxy, calculateIPReputation } from '../utils/advancedProxyDetection.js';
 import { createAuditLog } from '../middleware/auditLogger.js';
 import { ALERT_CREATION_THRESHOLD, RISK_FACTOR_SCORES } from '../config/constants.js';
-import { io } from '../server.js';
+import { getIO } from '../utils/ioManager.js';
 
 /**
  * Check for nearby active sessions
@@ -362,10 +362,13 @@ export const markAttendance = async (req, res) => {
         .populate('session', 'name')
         .populate('class', 'name');
       
-      io.emit('new-alert', {
-        alert: populatedAlert,
-        timestamp: new Date(),
-      });
+      const io = getIO();
+      if (io) {
+        io.emit('new-alert', {
+          alert: populatedAlert,
+          timestamp: new Date(),
+        });
+      }
     }
     
     // Log to audit trail

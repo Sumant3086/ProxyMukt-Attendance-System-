@@ -336,43 +336,12 @@ export const deleteClass = async (req, res) => {
 export const getDashboardStats = async (req, res) => {
   try {
     const [totalStudents, totalFaculty, totalClasses, totalSessions, totalAttendance] = await Promise.all([
-      User.countDocuments({ role: USER_ROLES.STUDENT, isActive: true }),
-      User.countDocuments({ role: USER_ROLES.FACULTY, isActive: true }),
-      Class.countDocuments({ isActive: true }),
+      User.countDocuments({ role: USER_ROLES.STUDENT }),
+      User.countDocuments({ role: USER_ROLES.FACULTY }),
+      Class.countDocuments(),
       Session.countDocuments(),
       Attendance.countDocuments(),
     ]);
-
-    // Get at-risk students
-    const classes = await Class.find().populate('students');
-    const atRiskStudents = [];
-
-    for (const classData of classes) {
-      const sessions = await Session.find({
-        class: classData._id,
-        status: { $in: ['COMPLETED', 'LIVE'] },
-      });
-
-      for (const student of classData.students) {
-        const attendance = await Attendance.find({
-          class: classData._id,
-          student: student._id,
-        });
-
-        const percentage = sessions.length > 0
-          ? (attendance.length / sessions.length) * 100
-          : 0;
-
-        if (percentage < 75 && sessions.length > 0) {
-          atRiskStudents.push({
-            studentId: student._id,
-            studentName: student.name,
-            className: classData.name,
-            percentage: percentage.toFixed(2),
-          });
-        }
-      }
-    }
 
     res.json({
       success: true,
@@ -384,10 +353,10 @@ export const getDashboardStats = async (req, res) => {
           totalSessions,
           totalAttendance,
         },
-        atRiskStudents: atRiskStudents.slice(0, 20),
       },
     });
   } catch (error) {
+    console.error('Dashboard stats error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

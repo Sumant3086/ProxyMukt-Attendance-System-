@@ -1,18 +1,29 @@
-import nodemailer from 'nodemailer';
+let transporter = null;
 
-// Configure email transporter
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+// Try to configure email transporter if nodemailer is available
+try {
+  const nodemailer = await import('nodemailer');
+  transporter = nodemailer.default.createTransport({
+    service: process.env.EMAIL_SERVICE || 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
+} catch (error) {
+  console.warn('⚠️  Nodemailer not installed. Email notifications will be disabled.');
+  console.warn('   To enable email notifications, run: npm install nodemailer');
+}
 
 /**
  * Send high-risk attendance alert email
  */
 export const sendHighRiskAlertEmail = async (adminEmail, alertData) => {
+  if (!transporter) {
+    console.log('Email service not available. Skipping alert email.');
+    return;
+  }
+  
   try {
     const { student, riskScore, riskFactors, severity, session, class: classData } = alertData;
 
@@ -103,6 +114,11 @@ export const sendHighRiskAlertEmail = async (adminEmail, alertData) => {
  * Send student appeal notification email
  */
 export const sendAppealNotificationEmail = async (studentEmail, appealData) => {
+  if (!transporter) {
+    console.log('Email service not available. Skipping appeal email.');
+    return;
+  }
+  
   try {
     const { appealId, reason, status } = appealData;
 
@@ -146,6 +162,11 @@ export const sendAppealNotificationEmail = async (studentEmail, appealData) => {
  * Send daily risk summary report
  */
 export const sendDailyRiskReport = async (adminEmail, reportData) => {
+  if (!transporter) {
+    console.log('Email service not available. Skipping daily report email.');
+    return;
+  }
+  
   try {
     const { date, criticalCount, highCount, mediumCount, totalAlerts, topRisks } = reportData;
 

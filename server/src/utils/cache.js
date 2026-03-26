@@ -1,5 +1,3 @@
-import redis from 'redis';
-
 let client = null;
 
 /**
@@ -7,6 +5,7 @@ let client = null;
  */
 export const initializeRedis = async () => {
   try {
+    const redis = await import('redis');
     client = redis.createClient({
       host: process.env.REDIS_HOST || 'localhost',
       port: process.env.REDIS_PORT || 6379,
@@ -22,8 +21,8 @@ export const initializeRedis = async () => {
     await client.connect();
     return client;
   } catch (error) {
-    console.error('Redis initialization failed:', error);
-    console.warn('Continuing without Redis caching');
+    console.warn('⚠️  Redis not installed or connection failed. Caching will be disabled.');
+    console.warn('   To enable Redis caching, run: npm install redis');
     return null;
   }
 };

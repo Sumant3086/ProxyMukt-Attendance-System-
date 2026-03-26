@@ -4,14 +4,40 @@ import Class from '../models/Class.js';
 import User from '../models/User.js';
 
 /**
- * Real Admin Analytics from DB
+ * Real Analytics - scoped by role
+ * ADMIN sees everything, FACULTY sees only their own classes/sessions
  */
 export const getAttendanceAnalytics = async (req, res) => {
   try {
     const { classId, startDate, endDate } = req.query;
+    const isAdmin = req.user.role === 'ADMIN';
+
+    // Faculty: find only their classes first
+    let allowedClassIds = null;
+    if (!isAdmin) {
+      const facultyClasses = await Class.find({ faculty: req.user._id }, '_id').lean();
+      allowedClassIds = facultyClasses.map((c) => c._id);
+
+      // Faculty has no classes — return empty data
+      if (allowedClassIds.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            overview: { totalStudents: 0, totalFaculty: 0, totalSessions: 0, liveSessions: 0, averageAttendance: 0 },
+            atRiskStudents: [],
+            dailyTrend: [],
+            sessionBreakdown: [],
+          },
+        });
+      }
+    }
 
     let sessionQuery = {};
-    if (classId) sessionQuery.class = classId;
+    if (classId) {
+      sessionQuery.class = classId;
+    } else if (allowedClassIds) {
+      sessionQuery.class = { $in: allowedClassIds };
+    }
     if (startDate || endDate) {
       sessionQuery.date = {};
       if (startDate) sessionQuery.date.$gte = new Date(startDate);
@@ -20,8 +46,8 @@ export const getAttendanceAnalytics = async (req, res) => {
 
     const [sessions, totalStudents, totalFaculty] = await Promise.all([
       Session.find(sessionQuery).populate('class', 'name code').sort('-date').lean(),
-      User.countDocuments({ role: 'STUDENT' }),
-      User.countDocuments({ role: 'FACULTY' }),
+      isAdmin ? User.countDocuments({ role: 'STUDENT' }) : 0,
+      isAdmin ? User.countDocuments({ role: 'FACULTY' }) : 0,
     ]);
 
     const sessionIds = sessions.map((s) => s._id);
@@ -46,27 +72,25 @@ export const getAttendanceAnalytics = async (req, res) => {
       };
     });
 
-    // Average attendance
     const avgAttendance =
       sessionBreakdown.length > 0
-        ? Math.round(
-            sessionBreakdown.reduce((s, x) => s + x.percentage, 0) / sessionBreakdown.length
-          )
+        ? Math.round(sessionBreakdown.reduce((s, x) => s + x.percentage, 0) / sessionBreakdown.length)
         : 0;
 
     // Daily trend (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recentSessions = sessions.filter((s) => new Date(s.date) >= thirtyDaysAgo);
     const dailyMap = {};
-    recentSessions.forEach((session) => {
-      const day = new Date(session.date).toISOString().split('T')[0];
-      if (!dailyMap[day]) dailyMap[day] = { total: 0, attendance: 0 };
-      dailyMap[day].total += session.totalStudents || 0;
-      dailyMap[day].attendance += attendanceRecords.filter(
-        (a) => a.session.toString() === session._id.toString()
-      ).length;
-    });
+    sessions
+      .filter((s) => new Date(s.date) >= thirtyDaysAgo)
+      .forEach((session) => {
+        const day = new Date(session.date).toISOString().split('T')[0];
+        if (!dailyMap[day]) dailyMap[day] = { total: 0, attendance: 0 };
+        dailyMap[day].total += session.totalStudents || 0;
+        dailyMap[day].attendance += attendanceRecords.filter(
+          (a) => a.session.toString() === session._id.toString()
+        ).length;
+      });
     const dailyTrend = Object.entries(dailyMap)
       .map(([date, d]) => ({
         date,
@@ -76,14 +100,12 @@ export const getAttendanceAnalytics = async (req, res) => {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // At-risk students (below 75% across all sessions)
+    // At-risk students scoped to these sessions only
     const studentMap = {};
     attendanceRecords.forEach((a) => {
       const sid = a.student?._id?.toString();
       if (!sid) return;
-      if (!studentMap[sid]) {
-        studentMap[sid] = { ...a.student, present: 0 };
-      }
+      if (!studentMap[sid]) studentMap[sid] = { ...a.student, present: 0 };
       studentMap[sid].present++;
     });
 
@@ -102,7 +124,7 @@ export const getAttendanceAnalytics = async (req, res) => {
       success: true,
       data: {
         overview: {
-          totalStudents,
+          totalStudents: isAdmin ? totalStudents : (allowedClassIds ? sessions.reduce((acc, s) => acc + (s.totalStudents || 0), 0) : 0),
           totalFaculty,
           totalSessions: sessions.length,
           liveSessions: sessions.filter((s) => s.status === 'LIVE').length,

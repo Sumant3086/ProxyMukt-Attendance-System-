@@ -145,7 +145,7 @@ export const getWebGLFingerprint = () => {
  */
 export const getAudioContextFingerprint = () => {
   try {
-    const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return null;
 
     const context = new AudioContext();
@@ -273,8 +273,8 @@ export const detectWebRTCLeak = async () => {
   return new Promise((resolve) => {
     try {
       const RTCPeerConnection = window.RTCPeerConnection || 
-                               (window as any).webkitRTCPeerConnection || 
-                               (window as any).mozRTCPeerConnection;
+                               window.webkitRTCPeerConnection || 
+                               window.mozRTCPeerConnection;
       
       if (!RTCPeerConnection) {
         resolve(null);

@@ -18,6 +18,7 @@ import onlineSessionRoutes from './routes/onlineSessionRoutes.js';
 import zoomRoutes from './routes/zoomRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import alertRoutes from './routes/alertRoutes.js';
 import { generateQRToken, getQRRotationInterval } from './utils/qr.js';
 
 dotenv.config();
@@ -85,16 +86,25 @@ app.use('/api/online-sessions', onlineSessionRoutes);
 app.use('/api/zoom', zoomRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/alerts', alertRoutes);
 
 // Error handlers
 app.use(notFound);
 app.use(errorHandler);
 
-// Socket.IO for real-time QR updates
+// Socket.IO for real-time QR updates and alerts
 const activeSessions = new Map();
+const adminConnections = new Map(); // Track admin connections for alerts
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
+  
+  // Admin joins alerts namespace
+  socket.on('admin-join-alerts', (adminId) => {
+    socket.join(`admin-${adminId}`);
+    adminConnections.set(adminId, socket.id);
+    console.log(`Admin ${adminId} joined alerts namespace`);
+  });
   
   socket.on('join-session', (sessionId) => {
     socket.join(`session-${sessionId}`);
@@ -128,8 +138,18 @@ io.on('connection', (socket) => {
   
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
+    // Remove admin from connections
+    for (const [adminId, socketId] of adminConnections.entries()) {
+      if (socketId === socket.id) {
+        adminConnections.delete(adminId);
+        break;
+      }
+    }
   });
 });
+
+// Export io for use in controllers
+export { io };
 
 const PORT = process.env.PORT || 5000;
 

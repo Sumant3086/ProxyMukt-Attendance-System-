@@ -85,3 +85,36 @@ export const ATTENDANCE_STATUS = {
   ABSENT: 'ABSENT',
   LATE: 'LATE'
 };
+
+// ============================================
+// ALERT & RISK SCORING
+// ============================================
+export const RISK_SCORE_THRESHOLDS = {
+  LOW: 30,                    // 0-30: Low risk
+  MEDIUM: 50,                 // 31-50: Medium risk
+  HIGH: 70,                   // 51-70: High risk
+  CRITICAL: 100,              // 71-100: Critical risk
+};
+
+export const RISK_FACTOR_SCORES = {
+  PROXY_DETECTED: 25,
+  VPN_DETECTED: 20,
+  TOR_DETECTED: 40,
+  RESIDENTIAL_PROXY: 35,
+  DATACENTER_IP: 30,
+  IMPOSSIBLE_TRAVEL: 45,
+  SUSPICIOUS_DEVICE: 25,
+  LOCATION_SPOOFING: 35,
+  SHARED_DEVICE: 20,
+  UNUSUAL_TIME: 15,
+};
+
+export const ALERT_CREATION_THRESHOLD = 70;  // Create alert if risk score >= 70
+export const RESIDENTIAL_PROXY_DETECTION_THRESHOLD = 10; // 10+ students from same IP in 24h
+export const IP_SWITCH_THRESHOLD = 5;        // 5+ IP switches in 24h = suspicious
+
+// ============================================
+// CURSOR PAGINATION
+// ============================================
+export const CURSOR_PAGE_SIZE = 20;           // default cursor pagination size
+export const MAX_CURSOR_PAGE_SIZE = 100;      // maximum allowed page size

@@ -2,13 +2,14 @@ import User from '../models/User.js';
 import Session from '../models/Session.js';
 import Class from '../models/Class.js';
 import Attendance from '../models/Attendance.js';
-import { DEFAULT_PAGE_SIZE, USER_ROLES } from '../config/constants.js';
+import { DEFAULT_PAGE_SIZE, USER_ROLES, CURSOR_PAGE_SIZE, MAX_CURSOR_PAGE_SIZE } from '../config/constants.js';
 
 /**
- * Get all users with real DB counts
+ * Get all users with cursor-based pagination
  */
 export const getAllUsers = async (req, res) => {
-  const { page = 1, limit = DEFAULT_PAGE_SIZE, role, search } = req.query;
+  const { cursor, limit = CURSOR_PAGE_SIZE, role, search } = req.query;
+  const pageLimit = Math.min(parseInt(limit) || CURSOR_PAGE_SIZE, MAX_CURSOR_PAGE_SIZE);
 
   try {
     let query = {};
@@ -21,13 +22,15 @@ export const getAllUsers = async (req, res) => {
       ];
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // If cursor provided, find documents after cursor
+    if (cursor) {
+      query._id = { $gt: cursor };
+    }
 
     const [users, totalCount, totalStudents, totalFaculty, totalSessions] = await Promise.all([
       User.find(query, 'name email role studentId department isActive createdAt')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
+        .sort({ _id: 1 })
+        .limit(pageLimit + 1) // Fetch one extra to determine if there's a next page
         .lean(),
       User.countDocuments(query),
       User.countDocuments({ role: USER_ROLES.STUDENT }),
@@ -35,17 +38,21 @@ export const getAllUsers = async (req, res) => {
       Session.countDocuments(),
     ]);
 
+    // Determine if there's a next page
+    const hasMore = users.length > pageLimit;
+    const data = hasMore ? users.slice(0, pageLimit) : users;
+    const nextCursor = hasMore ? data[data.length - 1]._id : null;
+
     res.json({
       success: true,
       data: {
-        users,
+        users: data,
         stats: { totalStudents, totalFaculty, totalSessions },
         pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / parseInt(limit)),
+          cursor: nextCursor,
+          hasMore,
+          count: data.length,
           totalCount,
-          hasNext: parseInt(page) < Math.ceil(totalCount / parseInt(limit)),
-          hasPrev: parseInt(page) > 1,
         },
       },
     });
@@ -225,11 +232,12 @@ export const removeStudent = async (req, res) => {
 };
 
 /**
- * Get all classes with faculty and student details
+ * Get all classes with cursor-based pagination
  */
 export const getAllClasses = async (req, res) => {
   try {
-    const { page = 1, limit = DEFAULT_PAGE_SIZE, search } = req.query;
+    const { cursor, limit = CURSOR_PAGE_SIZE, search } = req.query;
+    const pageLimit = Math.min(parseInt(limit) || CURSOR_PAGE_SIZE, MAX_CURSOR_PAGE_SIZE);
 
     let query = {};
     if (search) {
@@ -240,21 +248,27 @@ export const getAllClasses = async (req, res) => {
       ];
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // If cursor provided, find documents after cursor
+    if (cursor) {
+      query._id = { $gt: cursor };
+    }
 
-    const [classes, totalCount] = await Promise.all([
-      Class.find(query)
-        .populate('faculty', 'name email')
-        .populate('students', 'name email studentId')
-        .sort('-createdAt')
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      Class.countDocuments(query),
-    ]);
+    const classes = await Class.find(query)
+      .populate('faculty', 'name email')
+      .populate('students', 'name email studentId')
+      .sort({ _id: 1 })
+      .limit(pageLimit + 1) // Fetch one extra to determine if there's a next page
+      .lean();
+
+    const totalCount = await Class.countDocuments(query);
+
+    // Determine if there's a next page
+    const hasMore = classes.length > pageLimit;
+    const data = hasMore ? classes.slice(0, pageLimit) : classes;
+    const nextCursor = hasMore ? data[data.length - 1]._id : null;
 
     const classesWithStats = await Promise.all(
-      classes.map(async (cls) => {
+      data.map(async (cls) => {
         const sessions = await Session.countDocuments({ class: cls._id });
         const attendance = await Attendance.countDocuments({ class: cls._id });
         return {
@@ -271,11 +285,10 @@ export const getAllClasses = async (req, res) => {
       data: {
         classes: classesWithStats,
         pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalCount / parseInt(limit)),
+          cursor: nextCursor,
+          hasMore,
+          count: data.length,
           totalCount,
-          hasNext: parseInt(page) < Math.ceil(totalCount / parseInt(limit)),
-          hasPrev: parseInt(page) > 1,
         },
       },
     });

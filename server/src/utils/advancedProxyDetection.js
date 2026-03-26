@@ -31,6 +31,8 @@ export const advancedProxyDetection = async (ip, userAgent = '') => {
     isProxy: false,
     isVPN: false,
     isTor: false,
+    isResidentialProxy: false,
+    isDatacenter: false,
     provider: null,
     riskScore: 0,
     methods: [],
@@ -55,6 +57,7 @@ export const advancedProxyDetection = async (ip, userAgent = '') => {
     results.methods.push('ASN_ANALYSIS');
     results.details.asn = method2;
     results.isProxy = results.isProxy || method2.isProxy;
+    results.isDatacenter = results.isDatacenter || method2.isDatacenter;
     results.riskScore += method2.riskScore;
   }
 
@@ -73,6 +76,7 @@ export const advancedProxyDetection = async (ip, userAgent = '') => {
     results.methods.push('DATACENTER_DETECTION');
     results.details.datacenter = method4;
     results.isProxy = results.isProxy || method4.isProxy;
+    results.isDatacenter = results.isDatacenter || method4.isDatacenter;
     results.riskScore += method4.riskScore;
   }
 
@@ -93,6 +97,113 @@ export const advancedProxyDetection = async (ip, userAgent = '') => {
   await cacheProxyCheck(ip, results);
 
   return results;
+};
+
+/**
+ * Detect residential proxy by analyzing usage patterns
+ */
+export const detectResidentialProxy = async (ip, userId) => {
+  try {
+    const Attendance = (await import('../models/Attendance.js')).default;
+
+    // Get all attendances from this IP in last 24 hours
+    const recentUsage = await Attendance.find({
+      'deviceInfo.ip': ip,
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    })
+      .distinct('student')
+      .lean();
+
+    // If same IP used by 10+ different students = residential proxy
+    if (recentUsage.length > 10) {
+      return {
+        isResidentialProxy: true,
+        riskScore: 35,
+        reason: `IP used by ${recentUsage.length} different students in 24h`,
+        userCount: recentUsage.length,
+      };
+    }
+
+    // Check for rapid IP rotation (same user, different IPs)
+    const userAttendances = await Attendance.find({
+      student: userId,
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    })
+      .select('deviceInfo.ip createdAt')
+      .lean();
+
+    const uniqueIPs = new Set(userAttendances.map((a) => a.deviceInfo?.ip));
+
+    if (uniqueIPs.size > 5) {
+      return {
+        isResidentialProxy: true,
+        riskScore: 40,
+        reason: `User switched ${uniqueIPs.size} IPs in 24h`,
+        ipCount: uniqueIPs.size,
+      };
+    }
+
+    return {
+      isResidentialProxy: false,
+      riskScore: 0,
+    };
+  } catch (error) {
+    console.error('Residential proxy detection failed:', error);
+    return {
+      isResidentialProxy: false,
+      riskScore: 0,
+    };
+  }
+};
+
+/**
+ * Calculate comprehensive IP reputation score
+ */
+export const calculateIPReputation = async (ip) => {
+  try {
+    const checks = {
+      isDatacenter: false,
+      isResidentialProxy: false,
+      isVPN: false,
+      isTor: false,
+      abuseScore: 0,
+      threatLevel: 'LOW',
+    };
+
+    const detection = await advancedProxyDetection(ip);
+
+    checks.isDatacenter = detection.isDatacenter;
+    checks.isVPN = detection.isVPN;
+    checks.isTor = detection.isTor;
+
+    let score = 0;
+    if (checks.isDatacenter) score += 25;
+    if (checks.isVPN) score += 40;
+    if (checks.isTor) score += 50;
+
+    if (detection.details?.datacenter?.abuseScore) {
+      checks.abuseScore = detection.details.datacenter.abuseScore;
+      score += Math.min(checks.abuseScore / 2, 25);
+    }
+
+    // Determine threat level
+    if (score >= 70) checks.threatLevel = 'CRITICAL';
+    else if (score >= 50) checks.threatLevel = 'HIGH';
+    else if (score >= 30) checks.threatLevel = 'MEDIUM';
+
+    return {
+      score: Math.min(score, 100),
+      checks,
+      methods: detection.methods,
+    };
+  } catch (error) {
+    console.error('IP reputation calculation failed:', error);
+    return {
+      score: 0,
+      checks: {},
+      methods: [],
+    };
+  }
 };
 
 /**
@@ -158,13 +269,17 @@ const analyzeASN = async (ip) => {
         'aws',
         'azure',
         'gcp',
+        'linode',
+        'digitalocean',
       ];
 
       const orgLower = (data.org || '').toLowerCase();
       const isProxy = suspiciousOrgs.some((term) => orgLower.includes(term));
+      const isDatacenter = /datacenter|cloud|aws|azure|gcp/.test(orgLower);
 
       return {
         isProxy,
+        isDatacenter,
         riskScore: isProxy ? 40 : 0,
         org: data.org,
         asn: data.asn,
@@ -234,9 +349,9 @@ const detectDatacenter = async (ip) => {
       const data = response.data.data;
       return {
         isProxy: data.isDatacenter || data.isProxy,
+        isDatacenter: data.isDatacenter,
         riskScore: (data.abuseConfidenceScore || 0) / 2, // Scale to 0-50
         abuseScore: data.abuseConfidenceScore,
-        isDatacenter: data.isDatacenter,
       };
     }
   } catch (error) {

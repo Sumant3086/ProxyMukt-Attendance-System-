@@ -2,11 +2,16 @@ import Attendance from '../models/Attendance.js';
 import Session from '../models/Session.js';
 import Class from '../models/Class.js';
 import User from '../models/User.js';
+import Alert from '../models/Alert.js';
+import VerificationQueue from '../models/VerificationQueue.js';
 import { verifyQRToken, generateQRToken } from '../utils/qr.js';
 import { verifyGeofence, validateCoordinates, detectLocationSpoofing } from '../utils/geofencing.js';
 import { generateDeviceFingerprint, parseUserAgent, detectSuspiciousDevice } from '../utils/deviceFingerprint.js';
 import { checkProxyVPN } from '../utils/proxyDetection.js';
+import { detectResidentialProxy, calculateIPReputation } from '../utils/advancedProxyDetection.js';
 import { createAuditLog } from '../middleware/auditLogger.js';
+import { ALERT_CREATION_THRESHOLD, RISK_FACTOR_SCORES } from '../config/constants.js';
+import { io } from '../server.js';
 
 /**
  * Check for nearby active sessions
@@ -225,6 +230,22 @@ export const markAttendance = async (req, res) => {
       console.error('Proxy check failed:', error.message);
     }
     
+    // Detect residential proxy
+    let residentialProxyCheck = { isResidentialProxy: false, riskScore: 0 };
+    try {
+      residentialProxyCheck = await detectResidentialProxy(ipAddress, req.user._id);
+    } catch (error) {
+      console.error('Residential proxy detection failed:', error.message);
+    }
+    
+    // Calculate IP reputation
+    let ipReputation = { score: 0, isDatacenter: false, threatLevel: 'LOW' };
+    try {
+      ipReputation = await calculateIPReputation(ipAddress);
+    } catch (error) {
+      console.error('IP reputation check failed:', error.message);
+    }
+    
     // Get previous devices for this student
     const previousAttendances = await Attendance.find({
       student: req.user._id,
@@ -234,6 +255,42 @@ export const markAttendance = async (req, res) => {
       { ...deviceDetails, deviceFingerprint, ...proxyCheck },
       previousAttendances.map(a => a.deviceInfo)
     );
+    
+    // Calculate total risk score
+    let totalRiskScore = Math.max(proxyCheck.riskScore, suspiciousDevice.riskScore);
+    const riskFactors = [];
+    
+    if (proxyCheck.isProxy) {
+      totalRiskScore += RISK_FACTOR_SCORES.PROXY_DETECTED;
+      riskFactors.push('PROXY_DETECTED');
+    }
+    if (proxyCheck.isVPN) {
+      totalRiskScore += RISK_FACTOR_SCORES.VPN_DETECTED;
+      riskFactors.push('VPN_DETECTED');
+    }
+    if (proxyCheck.isTor) {
+      totalRiskScore += RISK_FACTOR_SCORES.TOR_DETECTED;
+      riskFactors.push('TOR_DETECTED');
+    }
+    if (residentialProxyCheck.isResidentialProxy) {
+      totalRiskScore += RISK_FACTOR_SCORES.RESIDENTIAL_PROXY;
+      riskFactors.push('RESIDENTIAL_PROXY');
+    }
+    if (ipReputation.isDatacenter) {
+      totalRiskScore += RISK_FACTOR_SCORES.DATACENTER_IP;
+      riskFactors.push('DATACENTER_IP');
+    }
+    if (spoofingDetection.isSuspicious) {
+      totalRiskScore += RISK_FACTOR_SCORES.LOCATION_SPOOFING;
+      riskFactors.push('LOCATION_SPOOFING');
+    }
+    if (suspiciousDevice.isSuspicious) {
+      totalRiskScore += RISK_FACTOR_SCORES.SUSPICIOUS_DEVICE;
+      riskFactors.push('SUSPICIOUS_DEVICE');
+    }
+    
+    // Cap risk score at 100
+    totalRiskScore = Math.min(totalRiskScore, 100);
     
     // Create attendance record with enhanced device data
     const attendance = await Attendance.create({
@@ -252,7 +309,7 @@ export const markAttendance = async (req, res) => {
         isProxy: proxyCheck.isProxy,
         isVPN: proxyCheck.isVPN,
         isTor: proxyCheck.isTor,
-        riskScore: Math.max(proxyCheck.riskScore, suspiciousDevice.riskScore),
+        riskScore: totalRiskScore,
       },
       location: location ? {
         latitude: location.latitude,
@@ -263,6 +320,53 @@ export const markAttendance = async (req, res) => {
         suspicious: spoofingDetection.isSuspicious || suspiciousDevice.isSuspicious,
       } : undefined,
     });
+    
+    // Create alert if risk score exceeds threshold
+    if (totalRiskScore >= ALERT_CREATION_THRESHOLD) {
+      const severity = totalRiskScore >= 85 ? 'CRITICAL' : totalRiskScore >= 70 ? 'HIGH' : 'MEDIUM';
+      
+      const alert = await Alert.create({
+        student: req.user._id,
+        attendance: attendance._id,
+        session: session._id,
+        class: session.class._id,
+        riskScore: totalRiskScore,
+        riskFactors,
+        severity,
+        status: 'PENDING',
+        deviceInfo: {
+          ip: ipAddress,
+          userAgent: req.headers['user-agent'],
+          browser: deviceDetails.browser,
+          os: deviceDetails.os,
+          deviceFingerprint,
+        },
+        locationInfo: location ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy,
+        } : undefined,
+      });
+      
+      // Create verification queue entry
+      await VerificationQueue.create({
+        alert: alert._id,
+        student: req.user._id,
+        attendance: attendance._id,
+        priority: Math.floor(totalRiskScore / 10), // Priority 7-10 for risk scores 70-100
+      });
+      
+      // Emit real-time alert to all admins
+      const populatedAlert = await Alert.findById(alert._id)
+        .populate('student', 'name email studentId')
+        .populate('session', 'name')
+        .populate('class', 'name');
+      
+      io.emit('new-alert', {
+        alert: populatedAlert,
+        timestamp: new Date(),
+      });
+    }
     
     // Log to audit trail
     await createAuditLog(

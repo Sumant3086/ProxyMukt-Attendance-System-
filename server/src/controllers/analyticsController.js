@@ -12,6 +12,165 @@ import {
 } from '../config/constants.js';
 
 /**
+ * Get analytics data by section (lazy loading)
+ * Sections: overview, trends, students, sessions
+ */
+export const getAnalyticsBySection = async (req, res) => {
+  try {
+    const { section = 'overview', classId, startDate, endDate } = req.query;
+    const isAdmin = req.user.role === 'ADMIN';
+
+    // Faculty: find only their classes first
+    let allowedClassIds = null;
+    if (!isAdmin) {
+      const facultyClasses = await Class.find({ faculty: req.user._id }, '_id').lean();
+      allowedClassIds = facultyClasses.map((c) => c._id);
+
+      if (allowedClassIds.length === 0) {
+        return res.json({
+          success: true,
+          data: {},
+        });
+      }
+    }
+
+    let sessionQuery = {};
+    if (classId) {
+      sessionQuery.class = classId;
+    } else if (allowedClassIds) {
+      sessionQuery.class = { $in: allowedClassIds };
+    }
+    if (startDate || endDate) {
+      sessionQuery.date = {};
+      if (startDate) sessionQuery.date.$gte = new Date(startDate);
+      if (endDate) sessionQuery.date.$lte = new Date(endDate);
+    }
+
+    const sessions = await Session.find(sessionQuery).populate('class', 'name code').sort('-date').lean();
+    const sessionIds = sessions.map((s) => s._id);
+    const attendanceRecords = await Attendance.find({ session: { $in: sessionIds } })
+      .populate('student', 'name email studentId')
+      .lean();
+
+    let result = {};
+
+    // Overview section
+    if (section === 'overview' || section === 'all') {
+      const totalStudents = isAdmin ? await User.countDocuments({ role: 'STUDENT' }) : 0;
+      const totalFaculty = isAdmin ? await User.countDocuments({ role: 'FACULTY' }) : 0;
+
+      const sessionBreakdown = sessions.map((session) => {
+        const count = attendanceRecords.filter(
+          (a) => a.session.toString() === session._id.toString()
+        ).length;
+        const total = session.totalStudents || 1;
+        return {
+          id: session._id,
+          title: session.title,
+          class: session.class?.name || 'N/A',
+          date: session.date,
+          attendance: count,
+          total,
+          percentage: Math.round((count / total) * 100),
+        };
+      });
+
+      const avgAttendance =
+        sessionBreakdown.length > 0
+          ? Math.round(sessionBreakdown.reduce((s, x) => s + x.percentage, 0) / sessionBreakdown.length)
+          : 0;
+
+      result.overview = {
+        totalStudents: isAdmin ? totalStudents : (allowedClassIds ? sessions.reduce((acc, s) => acc + (s.totalStudents || 0), 0) : 0),
+        totalFaculty,
+        totalSessions: sessions.length,
+        liveSessions: sessions.filter((s) => s.status === 'LIVE').length,
+        averageAttendance: avgAttendance,
+      };
+    }
+
+    // Trends section
+    if (section === 'trends' || section === 'all') {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - DAILY_TREND_DAYS);
+      const dailyMap = {};
+      sessions
+        .filter((s) => new Date(s.date) >= thirtyDaysAgo)
+        .forEach((session) => {
+          const day = new Date(session.date).toISOString().split('T')[0];
+          if (!dailyMap[day]) dailyMap[day] = { total: 0, attendance: 0 };
+          dailyMap[day].total += session.totalStudents || 0;
+          dailyMap[day].attendance += attendanceRecords.filter(
+            (a) => a.session.toString() === session._id.toString()
+          ).length;
+        });
+      const dailyTrend = Object.entries(dailyMap)
+        .map(([date, d]) => ({
+          date,
+          total: d.total,
+          attendance: d.attendance,
+          percentage: d.total > 0 ? Math.round((d.attendance / d.total) * 100) : 0,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      result.trends = dailyTrend;
+    }
+
+    // Students section
+    if (section === 'students' || section === 'all') {
+      const studentMap = {};
+      attendanceRecords.forEach((a) => {
+        const sid = a.student?._id?.toString();
+        if (!sid) return;
+        if (!studentMap[sid]) studentMap[sid] = { ...a.student, present: 0 };
+        studentMap[sid].present++;
+      });
+
+      const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length;
+      const atRiskStudents = Object.values(studentMap)
+        .map((s) => ({
+          ...s,
+          total: completedSessions,
+          attendanceRate: completedSessions > 0 ? Math.round((s.present / completedSessions) * 100) : 0,
+        }))
+        .filter((s) => s.attendanceRate < ATTENDANCE_THRESHOLD_GOOD)
+        .sort((a, b) => a.attendanceRate - b.attendanceRate)
+        .slice(0, AT_RISK_DISPLAY_LIMIT);
+
+      result.students = atRiskStudents;
+    }
+
+    // Sessions section
+    if (section === 'sessions' || section === 'all') {
+      const sessionBreakdown = sessions.map((session) => {
+        const count = attendanceRecords.filter(
+          (a) => a.session.toString() === session._id.toString()
+        ).length;
+        const total = session.totalStudents || 1;
+        return {
+          id: session._id,
+          title: session.title,
+          class: session.class?.name || 'N/A',
+          date: session.date,
+          attendance: count,
+          total,
+          percentage: Math.round((count / total) * 100),
+        };
+      });
+
+      result.sessions = sessionBreakdown;
+    }
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
  * Real Analytics - scoped by role
  * ADMIN sees everything, FACULTY sees only their own classes/sessions
  */

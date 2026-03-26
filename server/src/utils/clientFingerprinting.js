@@ -145,7 +145,7 @@ export const getWebGLFingerprint = () => {
  */
 export const getAudioContextFingerprint = () => {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return null;
 
     const context = new AudioContext();
@@ -196,6 +196,8 @@ export const getInstalledFonts = () => {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
+  if (!ctx) return [];
+
   const testString = 'mmmmmmmmmmlli';
   const textSize = '72px';
 
@@ -227,20 +229,24 @@ export const getInstalledFonts = () => {
 };
 
 /**
- * Get plugin list
+ * Get plugin list (deprecated but still useful for fingerprinting)
  */
 export const getPluginList = () => {
   const plugins = [];
 
-  if (navigator.plugins) {
-    for (let i = 0; i < navigator.plugins.length; i++) {
-      const plugin = navigator.plugins[i];
-      plugins.push({
-        name: plugin.name,
-        description: plugin.description,
-        version: plugin.version,
-      });
+  try {
+    if (navigator.plugins && navigator.plugins.length > 0) {
+      for (let i = 0; i < navigator.plugins.length; i++) {
+        const plugin = navigator.plugins[i];
+        plugins.push({
+          name: plugin.name || 'Unknown',
+          description: plugin.description || '',
+          version: plugin.version || ''
+        });
+      }
     }
+  } catch (error) {
+    console.warn('Could not access plugins:', error);
   }
 
   return plugins;
@@ -266,9 +272,16 @@ const getWebGLContext = () => {
 export const detectWebRTCLeak = async () => {
   return new Promise((resolve) => {
     try {
-      const peerConnection = new (window.RTCPeerConnection ||
-        window.webkitRTCPeerConnection ||
-        window.mozRTCPeerConnection)({
+      const RTCPeerConnection = window.RTCPeerConnection || 
+                               (window as any).webkitRTCPeerConnection || 
+                               (window as any).mozRTCPeerConnection;
+      
+      if (!RTCPeerConnection) {
+        resolve(null);
+        return;
+      }
+
+      const peerConnection = new RTCPeerConnection({
         iceServers: [],
       });
 

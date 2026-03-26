@@ -73,6 +73,15 @@ attendanceSchema.index({ session: 1, student: 1 }, { unique: true });
 attendanceSchema.index({ class: 1, student: 1 });
 attendanceSchema.index({ student: 1, createdAt: -1 });
 
+// Performance indexes for queries
+attendanceSchema.index({ 'deviceInfo.ip': 1 });
+attendanceSchema.index({ 'deviceInfo.riskScore': 1 });
+attendanceSchema.index({ 'location.verified': 1 });
+attendanceSchema.index({ createdAt: -1 });
+attendanceSchema.index({ class: 1, createdAt: -1 });
+attendanceSchema.index({ 'deviceInfo.isProxy': 1 });
+attendanceSchema.index({ status: 1, createdAt: -1 });
+
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 
 export default Attendance;

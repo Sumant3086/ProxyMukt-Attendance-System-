@@ -11,6 +11,7 @@ import AnimatedBackground from '../components/AnimatedBackground';
 import { AttendanceTrendChart } from '../components/AttendanceChart';
 import axiosInstance from '../utils/axiosInstance';
 import { QrCode, BookOpen, Calendar, BarChart3, TrendingUp, Award } from 'lucide-react';
+import { ATTENDANCE_THRESHOLD_GOOD, ATTENDANCE_THRESHOLD_WARNING, RECENT_ATTENDANCE_LIMIT } from '../lib/constants';
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -125,30 +126,40 @@ export default function StudentDashboard() {
                 icon={BookOpen}
                 title="Enrolled Classes"
                 value={classes.length}
-                subtitle="Active courses"
+                subtitle={`${classes.length} active course${classes.length !== 1 ? 's' : ''}`}
                 color="blue"
                 delay={0}
-                trend={5}
+                trend={null}
               />
               
               <StatsCard
                 icon={Calendar}
-                title="Total Attendance"
+                title="Sessions Attended"
                 value={attendance.length}
-                subtitle="Sessions attended"
+                subtitle={`out of ${stats.totalSessions} total sessions`}
                 color="green"
                 delay={0.1}
-                trend={12}
+                trend={null}
               />
               
               <StatsCard
                 icon={TrendingUp}
-                title="Avg Attendance"
+                title="Attendance Rate"
                 value={`${stats.percentage}%`}
-                subtitle={stats.percentage >= 75 ? 'Keep it up!' : stats.percentage >= 60 ? 'Needs improvement' : 'At risk!'}
-                color={stats.percentage >= 75 ? 'green' : stats.percentage >= 60 ? 'orange' : 'red'}
+                subtitle={
+                  stats.percentage >= ATTENDANCE_THRESHOLD_GOOD
+                    ? `Above ${ATTENDANCE_THRESHOLD_GOOD}% — Keep it up!`
+                    : stats.percentage >= ATTENDANCE_THRESHOLD_WARNING
+                    ? `Below ${ATTENDANCE_THRESHOLD_GOOD}% — Needs improvement`
+                    : `Below ${ATTENDANCE_THRESHOLD_WARNING}% — At risk!`
+                }
+                color={
+                  stats.percentage >= ATTENDANCE_THRESHOLD_GOOD ? 'green'
+                  : stats.percentage >= ATTENDANCE_THRESHOLD_WARNING ? 'orange'
+                  : 'red'
+                }
                 delay={0.2}
-                trend={stats.percentage >= 75 ? 8 : stats.percentage >= 60 ? 0 : -5}
+                trend={null}
               />
             </div>
             
@@ -198,7 +209,7 @@ export default function StudentDashboard() {
                     Recent Attendance
                   </h2>
                   <div className="space-y-3">
-                    {attendance.slice(0, 5).map((record, index) => (
+                    {attendance.slice(0, RECENT_ATTENDANCE_LIMIT).map((record, index) => (
                       <motion.div
                         key={record._id}
                         initial={{ opacity: 0, y: 20 }}

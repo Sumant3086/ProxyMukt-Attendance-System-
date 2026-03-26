@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEFAULT_GEOFENCE_RADIUS, SESSION_STATUS_ENUM } from '../config/constants.js';
 
 const sessionSchema = new mongoose.Schema(
   {
@@ -31,7 +32,7 @@ const sessionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['SCHEDULED', 'LIVE', 'COMPLETED', 'CANCELLED'],
+      enum: SESSION_STATUS_ENUM,
       default: 'SCHEDULED',
     },
     qrSecret: {
@@ -45,7 +46,7 @@ const sessionSchema = new mongoose.Schema(
       longitude: Number,
       radius: {
         type: Number,
-        default: 100, // meters
+        default: DEFAULT_GEOFENCE_RADIUS, // meters
       },
       geofencingEnabled: {
         type: Boolean,

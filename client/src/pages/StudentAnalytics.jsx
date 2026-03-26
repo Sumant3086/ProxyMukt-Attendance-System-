@@ -7,6 +7,7 @@ import GlassCard from '../components/GlassCard';
 import ProgressRing from '../components/ProgressRing';
 import axiosInstance from '../utils/axiosInstance';
 import { TrendingUp, TrendingDown, Calendar, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ATTENDANCE_THRESHOLD_GOOD, ATTENDANCE_THRESHOLD_WARNING } from '../lib/constants';
 
 export default function StudentAnalytics() {
   const [analytics, setAnalytics] = useState(null);
@@ -119,10 +120,10 @@ export default function StudentAnalytics() {
                         {analytics?.overall.totalAttended} / {analytics?.overall.totalSessions}
                       </p>
                     </div>
-                    {analytics?.overall.percentage < 75 && (
+                    {analytics?.overall.percentage < ATTENDANCE_THRESHOLD_GOOD && (
                       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
                         <p className="text-sm text-red-800 dark:text-red-400 font-medium">
-                          ⚠️ Below 75% threshold
+                          ⚠️ Below {ATTENDANCE_THRESHOLD_GOOD}% threshold
                         </p>
                       </div>
                     )}
@@ -167,9 +168,9 @@ export default function StudentAnalytics() {
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600 dark:text-gray-400">Percentage</span>
                           <span className={`font-bold ${
-                            cls.percentage >= 75 
+                            cls.percentage >= ATTENDANCE_THRESHOLD_GOOD
                               ? 'text-green-600 dark:text-green-400'
-                              : cls.percentage >= 60
+                              : cls.percentage >= ATTENDANCE_THRESHOLD_WARNING
                               ? 'text-yellow-600 dark:text-yellow-400'
                               : 'text-red-600 dark:text-red-400'
                           }`}>
@@ -218,9 +219,9 @@ export default function StudentAnalytics() {
                                 animate={{ width: `${month.percentage}%` }}
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 className={`h-full rounded-full flex items-center justify-end pr-3 ${
-                                  month.percentage >= 75
+                                  month.percentage >= ATTENDANCE_THRESHOLD_GOOD
                                     ? 'bg-gradient-to-r from-green-500 to-emerald-500'
-                                    : month.percentage >= 60
+                                    : month.percentage >= ATTENDANCE_THRESHOLD_WARNING
                                     ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
                                     : 'bg-gradient-to-r from-red-500 to-pink-500'
                                 }`}

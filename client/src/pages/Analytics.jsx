@@ -15,6 +15,7 @@ import {
   BarChart3,
   PieChart
 } from 'lucide-react';
+import { ATTENDANCE_THRESHOLD_GOOD, ATTENDANCE_THRESHOLD_WARNING, RECENT_SESSIONS_LIMIT, DAILY_TREND_DISPLAY } from '../lib/constants';
 
 export default function Analytics() {
   const [analytics, setAnalytics] = useState(null);
@@ -205,7 +206,7 @@ export default function Analytics() {
                       <p className="text-3xl font-bold mt-2">{analytics?.overview.averageAttendance}%</p>
                     </div>
                     <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
-                      {analytics?.overview.averageAttendance >= 75 ? (
+                      {analytics?.overview.averageAttendance >= ATTENDANCE_THRESHOLD_GOOD ? (
                         <TrendingUp className="text-green-600 dark:text-green-400" size={24} />
                       ) : (
                         <TrendingDown className="text-red-600 dark:text-red-400" size={24} />
@@ -263,7 +264,7 @@ export default function Analytics() {
                 <GlassCard className="p-6">
                   <div className="flex items-center space-x-3 mb-6">
                     <AlertTriangle className="text-red-600" size={24} />
-                    <h2 className="text-2xl font-bold">At-Risk Students (Below 75%)</h2>
+                    <h2 className="text-2xl font-bold">At-Risk Students (Below {ATTENDANCE_THRESHOLD_GOOD}%)</h2>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
@@ -293,7 +294,7 @@ export default function Analytics() {
                             <td className="py-3 px-4 text-center">{student.total}</td>
                             <td className="py-3 px-4 text-center">
                               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                student.attendanceRate >= 60
+                                student.attendanceRate >= ATTENDANCE_THRESHOLD_WARNING
                                   ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                                   : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                               }`}>
@@ -320,10 +321,10 @@ export default function Analytics() {
                 <GlassCard className="p-6">
                   <div className="flex items-center space-x-3 mb-6">
                     <PieChart className="text-indigo-600" size={24} />
-                    <h2 className="text-2xl font-bold">Attendance Trend (Last 30 Days)</h2>
+                    <h2 className="text-2xl font-bold">Attendance Trend (Last {DAILY_TREND_DAYS} Days)</h2>
                   </div>
                   <div className="space-y-4">
-                    {(analytics?.dailyTrend || []).slice(-10).map((day, index) => (
+                    {(analytics?.dailyTrend || []).slice(-DAILY_TREND_DISPLAY).map((day, index) => (
                       <div key={index} className="flex items-center space-x-4">
                         <div className="w-32 text-sm text-gray-600 dark:text-gray-400">
                           {new Date(day.date).toLocaleDateString()}
@@ -335,9 +336,9 @@ export default function Analytics() {
                               animate={{ width: `${day.percentage}%` }}
                               transition={{ duration: 0.5, delay: index * 0.1 }}
                               className={`h-full rounded-full ${
-                                day.percentage >= 75
+                                day.percentage >= ATTENDANCE_THRESHOLD_GOOD
                                   ? 'bg-gradient-to-r from-green-500 to-emerald-500'
-                                  : day.percentage >= 60
+                                  : day.percentage >= ATTENDANCE_THRESHOLD_WARNING
                                   ? 'bg-gradient-to-r from-yellow-500 to-orange-500'
                                   : 'bg-gradient-to-r from-red-500 to-pink-500'
                               }`}
@@ -377,7 +378,7 @@ export default function Analytics() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(analytics?.sessionBreakdown || []).slice(0, 10).map((session, index) => (
+                      {(analytics?.sessionBreakdown || []).slice(0, RECENT_SESSIONS_LIMIT).map((session, index) => (
                         <motion.tr
                           key={session.id}
                           initial={{ opacity: 0, x: -20 }}
@@ -391,9 +392,9 @@ export default function Analytics() {
                           <td className="py-3 px-4 text-center">{session.attendance}/{session.total}</td>
                           <td className="py-3 px-4 text-center">
                             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              session.percentage >= 75
+                              session.percentage >= ATTENDANCE_THRESHOLD_GOOD
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                : session.percentage >= 60
+                                : session.percentage >= ATTENDANCE_THRESHOLD_WARNING
                                 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                                 : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                             }`}>

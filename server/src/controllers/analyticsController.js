@@ -2,6 +2,14 @@ import Session from '../models/Session.js';
 import Attendance from '../models/Attendance.js';
 import Class from '../models/Class.js';
 import User from '../models/User.js';
+import {
+  ATTENDANCE_THRESHOLD_GOOD,
+  ATTENDANCE_THRESHOLD_WARNING,
+  DAILY_TREND_DAYS,
+  AT_RISK_DISPLAY_LIMIT,
+  RECENT_SESSIONS_LIMIT,
+  MONTHLY_TREND_MONTHS,
+} from '../config/constants.js';
 
 /**
  * Real Analytics - scoped by role
@@ -79,7 +87,7 @@ export const getAttendanceAnalytics = async (req, res) => {
 
     // Daily trend (last 30 days)
     const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - DAILY_TREND_DAYS);
     const dailyMap = {};
     sessions
       .filter((s) => new Date(s.date) >= thirtyDaysAgo)
@@ -116,9 +124,9 @@ export const getAttendanceAnalytics = async (req, res) => {
         total: completedSessions,
         attendanceRate: completedSessions > 0 ? Math.round((s.present / completedSessions) * 100) : 0,
       }))
-      .filter((s) => s.attendanceRate < 75)
+      .filter((s) => s.attendanceRate < ATTENDANCE_THRESHOLD_GOOD)
       .sort((a, b) => a.attendanceRate - b.attendanceRate)
-      .slice(0, 20);
+      .slice(0, AT_RISK_DISPLAY_LIMIT);
 
     res.json({
       success: true,
@@ -191,7 +199,7 @@ export const getStudentAnalytics = async (req, res) => {
     
     // Monthly trend (last 6 months)
     const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - MONTHLY_TREND_MONTHS);
     
     const monthlyData = {};
     attendanceRecords.forEach(record => {
@@ -228,11 +236,11 @@ export const getStudentAnalytics = async (req, res) => {
           totalSessions,
           totalAttended,
           percentage: parseFloat(overallPercentage),
-          status: overallPercentage >= 75 ? 'Good' : overallPercentage >= 60 ? 'Warning' : 'At Risk'
+          status: overallPercentage >= ATTENDANCE_THRESHOLD_GOOD ? 'Good' : overallPercentage >= ATTENDANCE_THRESHOLD_WARNING ? 'Warning' : 'At Risk'
         },
         byClass: Object.values(classStats),
         monthlyTrend,
-        recentSessions: sessions.slice(0, 10).map(s => {
+        recentSessions: sessions.slice(0, RECENT_SESSIONS_LIMIT).map(s => {
           const attended = attendanceRecords.some(a => a.session._id.toString() === s._id.toString());
           return {
             id: s._id,
@@ -349,7 +357,7 @@ export const getClassAnalytics = async (req, res) => {
         totalSessions,
         attended,
         percentage: parseFloat(percentage),
-        status: percentage >= 75 ? 'Good' : percentage >= 60 ? 'Warning' : 'At Risk'
+        status: percentage >= ATTENDANCE_THRESHOLD_GOOD ? 'Good' : percentage >= ATTENDANCE_THRESHOLD_WARNING ? 'Warning' : 'At Risk'
       };
     }).sort((a, b) => a.percentage - b.percentage);
     

@@ -3,6 +3,8 @@
  * Implements Haversine formula for accurate distance calculation
  */
 
+import { EARTH_RADIUS_METERS, DEFAULT_GEOFENCE_RADIUS, UNREALISTIC_ACCURACY_THRESHOLD, UNREALISTIC_SPEED_THRESHOLD, SPOOFING_SCORE_ACCURACY, SPOOFING_SCORE_SPEED, SPOOFING_SCORE_MOCK, SPOOFING_FLAG_THRESHOLD, SPOOFING_BLOCK_THRESHOLD } from '../config/constants.js';
+
 /**
  * Calculate distance between two coordinates using Haversine formula
  * @param {number} lat1 - Latitude of point 1
@@ -12,7 +14,7 @@
  * @returns {number} Distance in meters
  */
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371e3; // Earth's radius in meters
+  const R = EARTH_RADIUS_METERS;
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -58,7 +60,7 @@ export const verifyGeofence = (sessionLocation, studentLocation) => {
     studentLocation.longitude
   );
 
-  const radius = sessionLocation.radius || 100; // Default 100 meters
+  const radius = sessionLocation.radius || DEFAULT_GEOFENCE_RADIUS; // Default radius from constants
 
   // Verify if within radius
   const verified = distance <= radius;
@@ -125,32 +127,31 @@ export const detectLocationSpoofing = (locationData) => {
   let suspiciousScore = 0;
 
   // Check for unrealistic accuracy
-  if (locationData.accuracy && locationData.accuracy < 1) {
+  if (locationData.accuracy && locationData.accuracy < UNREALISTIC_ACCURACY_THRESHOLD) {
     warnings.push('Unrealistically high accuracy');
-    suspiciousScore += 2;
+    suspiciousScore += SPOOFING_SCORE_ACCURACY;
   }
 
   // Check for impossible speed (if previous location available)
-  if (locationData.speed && locationData.speed > 50) {
-    // 50 m/s = 180 km/h
+  if (locationData.speed && locationData.speed > UNREALISTIC_SPEED_THRESHOLD) {
     warnings.push('Unrealistic speed detected');
-    suspiciousScore += 3;
+    suspiciousScore += SPOOFING_SCORE_SPEED;
   }
 
   // Check for mock location flag (Android)
   if (locationData.isMock === true) {
     warnings.push('Mock location detected');
-    suspiciousScore += 5;
+    suspiciousScore += SPOOFING_SCORE_MOCK;
   }
 
   return {
-    isSuspicious: suspiciousScore >= 3,
+    isSuspicious: suspiciousScore >= SPOOFING_BLOCK_THRESHOLD,
     suspiciousScore,
     warnings,
     recommendation:
-      suspiciousScore >= 5
+      suspiciousScore >= SPOOFING_BLOCK_THRESHOLD
         ? 'BLOCK'
-        : suspiciousScore >= 3
+        : suspiciousScore >= SPOOFING_FLAG_THRESHOLD
         ? 'FLAG'
         : 'ALLOW',
   };

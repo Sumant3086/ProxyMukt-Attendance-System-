@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ATTENDANCE_STATUS, ATTENDANCE_SOURCE_ENUM } from '../config/constants.js';
 
 const attendanceSchema = new mongoose.Schema(
   {
@@ -19,8 +20,8 @@ const attendanceSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['PRESENT', 'ABSENT', 'LATE'],
-      default: 'PRESENT',
+      enum: Object.values(ATTENDANCE_STATUS),
+      default: ATTENDANCE_STATUS.PRESENT,
     },
     markedAt: {
       type: Date,
@@ -52,7 +53,7 @@ const attendanceSchema = new mongoose.Schema(
     },
     attendanceSource: {
       type: String,
-      enum: ['QR', 'FACE', 'ZOOM', 'GOOGLE_MEET', 'TEAMS', 'WEBRTC'],
+      enum: ATTENDANCE_SOURCE_ENUM,
       default: 'QR',
     },
     onlineSessionData: {

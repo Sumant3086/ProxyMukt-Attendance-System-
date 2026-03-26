@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { SHARED_DEVICE_THRESHOLD, DEVICE_RISK_SHARED, DEVICE_RISK_PROXY_VPN, DEVICE_RISK_TOR, DEVICE_RISK_SUSPICIOUS_UA, DEVICE_RISK_THRESHOLD, MIN_USER_AGENT_LENGTH } from '../config/constants.js';
 
 /**
  * Generate device fingerprint from request headers
@@ -86,31 +87,31 @@ export const detectSuspiciousDevice = (deviceInfo, previousDevices = []) => {
     (d) => d.deviceFingerprint === deviceInfo.deviceFingerprint
   ).length;
 
-  if (fingerprintCount > 3) {
+  if (fingerprintCount > SHARED_DEVICE_THRESHOLD) {
     suspicionFlags.push('SHARED_DEVICE');
-    riskScore += 30;
+    riskScore += DEVICE_RISK_SHARED;
   }
 
   // Check for proxy/VPN
   if (deviceInfo.isProxy || deviceInfo.isVPN) {
     suspicionFlags.push('PROXY_VPN_DETECTED');
-    riskScore += 40;
+    riskScore += DEVICE_RISK_PROXY_VPN;
   }
 
   // Check for Tor
   if (deviceInfo.isTor) {
     suspicionFlags.push('TOR_DETECTED');
-    riskScore += 50;
+    riskScore += DEVICE_RISK_TOR;
   }
 
   // Check for unusual user agent
-  if (!deviceInfo.userAgent || deviceInfo.userAgent.length < 20) {
+  if (!deviceInfo.userAgent || deviceInfo.userAgent.length < MIN_USER_AGENT_LENGTH) {
     suspicionFlags.push('SUSPICIOUS_USER_AGENT');
-    riskScore += 20;
+    riskScore += DEVICE_RISK_SUSPICIOUS_UA;
   }
 
   return {
-    isSuspicious: riskScore > 50,
+    isSuspicious: riskScore > DEVICE_RISK_THRESHOLD,
     riskScore,
     flags: suspicionFlags,
   };

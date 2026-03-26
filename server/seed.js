@@ -59,7 +59,7 @@ const seedDatabase = async () => {
       facultyData.push({
         name: `Faculty Member ${i}`,
         email: `faculty${i}@gmail.com`,
-        password: `faculty${i}123`,
+        password: `Faculty123`,
         role: 'FACULTY',
         department: i % 3 === 0 ? 'Electronics' : i % 2 === 0 ? 'Mathematics' : 'Computer Science',
       });
@@ -89,7 +89,7 @@ const seedDatabase = async () => {
       studentData.push({
         name: `Student ${i}`,
         email: `user${i}@gmail.com`,
-        password: `user${i}123`,
+        password: `Student123`,
         role: 'STUDENT',
         studentId: `STU${i.toString().padStart(3, '0')}`,
         department: i % 4 === 0 ? 'Electronics' : i % 3 === 0 ? 'Mathematics' : 'Computer Science',
@@ -381,15 +381,19 @@ const seedDatabase = async () => {
     console.log('\n👑 ADMIN:');
     console.log(`   Email: ${process.env.ADMIN_EMAIL || 'admin@proxymukt.com'}`);
     console.log(`   Password: ${process.env.ADMIN_PASSWORD || 'Admin@123'}`);
-    console.log('\n👨‍🏫 FACULTY (Named):');
+    console.log('\n👨‍🏫 FACULTY (Named - password Faculty@X23):');
     facultyNames.forEach((f, i) => {
       console.log(`   ${f.name}: ${f.email} / Faculty@${i + 1}23`);
     });
-    console.log('\n👨‍🎓 STUDENTS (Named):');
+    console.log('\n👨‍🏫 FACULTY (Numbered - ALL use same password):');
+    console.log('   faculty7@gmail.com to faculty50@gmail.com / Faculty123');
+    console.log('\n👨‍🎓 STUDENTS (Named - password Student@X23):');
     studentNames.slice(0, 5).forEach((name, i) => {
       const email = `${name.toLowerCase().replace(' ', '.')}@student.proxymukt.com`;
       console.log(`   ${name}: ${email} / Student@${i + 1}23`);
     });
+    console.log('\n👨‍🎓 STUDENTS (Numbered - ALL use same password):');
+    console.log('   user21@gmail.com to user500@gmail.com / Student123');
     console.log('\n📊 SEEDED DATA SUMMARY:');
     console.log(`   👥 Users: 1 admin + ${facultyData.length} faculty + ${studentData.length} students`);
     console.log(`   🏫 Classes: ${classes.length}`);

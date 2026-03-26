@@ -215,7 +215,7 @@ const seedDatabase = async () => {
               deviceInfo: {
                 userAgent: `Mozilla/5.0 (${randomChoice(oses)}) AppleWebKit/537.36`,
                 ip: `192.168.${randomBetween(1, 10)}.${randomBetween(1, 254)}`,
-                deviceFingerprint: `fp_${Math.random().toString(36).substr(2, 16)}`,
+                deviceFingerprint: `fp_${Math.random().toString(36).substring(2, 18)}`,
                 browser: randomChoice(browsers),
                 os: randomChoice(oses),
                 platform: randomChoice(platforms),

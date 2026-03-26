@@ -17,7 +17,7 @@ router.post('/', createAppeal);
 router.get('/my-appeals', getStudentAppeals);
 
 // Admin routes
-router.use(authorize('ADMIN'));
+router.use(authorize(['ADMIN']));
 router.get('/', getAllAppeals);
 router.get('/stats', getAppealStats);
 router.put('/:id/review', reviewAppeal);

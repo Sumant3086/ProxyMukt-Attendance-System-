@@ -13,7 +13,7 @@ const router = express.Router();
 
 // All alert routes require authentication and admin role
 router.use(authenticate);
-router.use(authorize('ADMIN'));
+router.use(authorize(['ADMIN']));
 
 // Alert endpoints
 router.get('/', getAlerts);

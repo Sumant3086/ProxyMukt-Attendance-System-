@@ -16,7 +16,7 @@ router.use(authenticate);
 router.get('/check', checkIPStatus);
 
 // Admin routes
-router.use(authorize('ADMIN'));
+router.use(authorize(['ADMIN']));
 router.post('/', addIPRule);
 router.get('/', getIPRules);
 router.put('/:id', updateIPRule);

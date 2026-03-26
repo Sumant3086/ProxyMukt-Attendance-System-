@@ -1,6 +1,5 @@
 import express from 'express';
-import { authenticate } from '../middleware/auth.js';
-import { authorize } from '../middleware/role.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 import { getAuditLogs } from '../middleware/auditLogger.js';
 import AuditLog from '../models/AuditLog.js';
 
@@ -11,7 +10,7 @@ const router = express.Router();
  * @desc    Get audit logs (Admin only)
  * @access  Private/Admin
  */
-router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
+router.get('/', authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
     const { userId, action, resource, startDate, endDate, status, page, limit } = req.query;
 
@@ -37,7 +36,7 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
  * @desc    Get audit logs for specific user
  * @access  Private/Admin
  */
-router.get('/user/:userId', authenticate, authorize('ADMIN'), async (req, res) => {
+router.get('/user/:userId', authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 50 } = req.query;
@@ -64,7 +63,7 @@ router.get('/user/:userId', authenticate, authorize('ADMIN'), async (req, res) =
  * @desc    Get audit statistics
  * @access  Private/Admin
  */
-router.get('/stats', authenticate, authorize('ADMIN'), async (req, res) => {
+router.get('/stats', authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 

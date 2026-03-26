@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import axiosInstance from '../utils/axiosInstance';
-import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { getDeviceInfo } from '../utils/deviceFingerprint';
+import FaceVerification from '../components/FaceVerification';
 
 export default function ScanQR() {
   const navigate = useNavigate();
@@ -15,8 +16,11 @@ export default function ScanQR() {
   const [messageType, setMessageType] = useState('');
   const [stream, setStream] = useState(null);
   const [location, setLocation] = useState(null);
-  const [locationStatus, setLocationStatus] = useState('checking'); // checking, granted, denied, unavailable
+  const [locationStatus, setLocationStatus] = useState('checking');
   const [locationError, setLocationError] = useState('');
+  const [faceVerified, setFaceVerified] = useState(false);
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
+  const [pendingQrToken, setPendingQrToken] = useState(null);
   
   const startCamera = async () => {
     try {
@@ -58,8 +62,28 @@ export default function ScanQR() {
     const qrToken = prompt('Enter QR code manually (for demo):');
     
     if (qrToken) {
-      await markAttendance(qrToken);
+      // Trigger face verification before marking attendance
+      setPendingQrToken(qrToken);
+      setShowFaceVerification(true);
+      stopCamera();
     }
+  };
+
+  const handleFaceVerified = async (result) => {
+    setFaceVerified(true);
+    setShowFaceVerification(false);
+    setMessage(result?.bypassed ? 'Proceeding without face verification...' : 'Face verified! Marking attendance...');
+    setMessageType('info');
+    if (pendingQrToken) {
+      await markAttendance(pendingQrToken);
+    }
+  };
+
+  const handleFaceFailed = async () => {
+    setShowFaceVerification(false);
+    setMessage('Face verification failed. Attendance not marked.');
+    setMessageType('error');
+    setPendingQrToken(null);
   };
 
   const getLocation = () => {
@@ -244,6 +268,28 @@ export default function ScanQR() {
             )}
             
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+              {/* Face Verification Panel */}
+              {showFaceVerification && (
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShieldCheck size={20} className="text-purple-500" />
+                    <h2 className="font-semibold text-lg">Step 2: Face Verification</h2>
+                  </div>
+                  <FaceVerification
+                    autoStart={true}
+                    onVerified={handleFaceVerified}
+                    onFailed={handleFaceFailed}
+                  />
+                </div>
+              )}
+
+              {faceVerified && !showFaceVerification && (
+                <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg flex items-center gap-2">
+                  <CheckCircle size={18} />
+                  <span className="text-sm font-medium">Face verification passed</span>
+                </div>
+              )}
+
               <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden mb-4 relative">
                 <video
                   ref={videoRef}

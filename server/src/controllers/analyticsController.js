@@ -4,24 +4,118 @@ import Class from '../models/Class.js';
 import User from '../models/User.js';
 
 /**
- * INSTANT Admin Analytics - Static data for speed
+ * Real Admin Analytics from DB
  */
 export const getAttendanceAnalytics = async (req, res) => {
-  // Return static data immediately - no database queries
-  res.json({
-    success: true,
-    data: {
-      overview: {
-        totalStudents: 500,
-        totalFaculty: 50,
-        totalSessions: 0,
-        averageAttendance: 85
-      },
-      atRiskStudents: [],
-      dailyTrend: [],
-      sessionBreakdown: []
+  try {
+    const { classId, startDate, endDate } = req.query;
+
+    let sessionQuery = {};
+    if (classId) sessionQuery.class = classId;
+    if (startDate || endDate) {
+      sessionQuery.date = {};
+      if (startDate) sessionQuery.date.$gte = new Date(startDate);
+      if (endDate) sessionQuery.date.$lte = new Date(endDate);
     }
-  });
+
+    const [sessions, totalStudents, totalFaculty] = await Promise.all([
+      Session.find(sessionQuery).populate('class', 'name code').sort('-date').lean(),
+      User.countDocuments({ role: 'STUDENT' }),
+      User.countDocuments({ role: 'FACULTY' }),
+    ]);
+
+    const sessionIds = sessions.map((s) => s._id);
+    const attendanceRecords = await Attendance.find({ session: { $in: sessionIds } })
+      .populate('student', 'name email studentId')
+      .lean();
+
+    // Session breakdown
+    const sessionBreakdown = sessions.map((session) => {
+      const count = attendanceRecords.filter(
+        (a) => a.session.toString() === session._id.toString()
+      ).length;
+      const total = session.totalStudents || 1;
+      return {
+        id: session._id,
+        title: session.title,
+        class: session.class?.name || 'N/A',
+        date: session.date,
+        attendance: count,
+        total,
+        percentage: Math.round((count / total) * 100),
+      };
+    });
+
+    // Average attendance
+    const avgAttendance =
+      sessionBreakdown.length > 0
+        ? Math.round(
+            sessionBreakdown.reduce((s, x) => s + x.percentage, 0) / sessionBreakdown.length
+          )
+        : 0;
+
+    // Daily trend (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentSessions = sessions.filter((s) => new Date(s.date) >= thirtyDaysAgo);
+    const dailyMap = {};
+    recentSessions.forEach((session) => {
+      const day = new Date(session.date).toISOString().split('T')[0];
+      if (!dailyMap[day]) dailyMap[day] = { total: 0, attendance: 0 };
+      dailyMap[day].total += session.totalStudents || 0;
+      dailyMap[day].attendance += attendanceRecords.filter(
+        (a) => a.session.toString() === session._id.toString()
+      ).length;
+    });
+    const dailyTrend = Object.entries(dailyMap)
+      .map(([date, d]) => ({
+        date,
+        total: d.total,
+        attendance: d.attendance,
+        percentage: d.total > 0 ? Math.round((d.attendance / d.total) * 100) : 0,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // At-risk students (below 75% across all sessions)
+    const studentMap = {};
+    attendanceRecords.forEach((a) => {
+      const sid = a.student?._id?.toString();
+      if (!sid) return;
+      if (!studentMap[sid]) {
+        studentMap[sid] = { ...a.student, present: 0 };
+      }
+      studentMap[sid].present++;
+    });
+
+    const completedSessions = sessions.filter((s) => s.status === 'COMPLETED').length;
+    const atRiskStudents = Object.values(studentMap)
+      .map((s) => ({
+        ...s,
+        total: completedSessions,
+        attendanceRate: completedSessions > 0 ? Math.round((s.present / completedSessions) * 100) : 0,
+      }))
+      .filter((s) => s.attendanceRate < 75)
+      .sort((a, b) => a.attendanceRate - b.attendanceRate)
+      .slice(0, 20);
+
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalStudents,
+          totalFaculty,
+          totalSessions: sessions.length,
+          liveSessions: sessions.filter((s) => s.status === 'LIVE').length,
+          averageAttendance: avgAttendance,
+        },
+        atRiskStudents,
+        dailyTrend,
+        sessionBreakdown,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 /**

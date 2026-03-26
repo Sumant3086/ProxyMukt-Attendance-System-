@@ -12,13 +12,7 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [pagination, setPagination] = useState(null);
-  
-  // Static data - loads instantly
-  const [stats] = useState({
-    totalStudents: 500,
-    totalFaculty: 50,
-    totalSessions: 0
-  });
+  const [stats, setStats] = useState({ totalStudents: 0, totalFaculty: 0, totalSessions: 0 });
   
   useEffect(() => {
     fetchUsers();
@@ -37,6 +31,7 @@ export default function AdminDashboard() {
       const { data } = await axiosInstance.get(`/admin/users?${params}`);
       setUsers(data.data.users);
       setPagination(data.data.pagination);
+      if (data.data.stats) setStats(data.data.stats);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {

@@ -11,10 +11,12 @@ import {
   Clock,
   TrendingUp,
   MessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import GlassCard from '../components/GlassCard';
 import Loader from '../components/Loader';
+import FaceVerification from '../components/FaceVerification';
 
 const OnlineSession = () => {
   const { id } = useParams();
@@ -28,6 +30,8 @@ const OnlineSession = () => {
   const [chatMessages, setChatMessages] = useState(0);
   const [attentionTime, setAttentionTime] = useState(0);
   const [engagementScore, setEngagementScore] = useState(0);
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
+  const [faceVerified, setFaceVerified] = useState(false);
 
   useEffect(() => {
     fetchSession();
@@ -61,6 +65,13 @@ const OnlineSession = () => {
   };
 
   const handleJoin = async () => {
+    // Show face verification first
+    setShowFaceVerification(true);
+  };
+
+  const handleFaceVerified = async (result) => {
+    setShowFaceVerification(false);
+    setFaceVerified(true);
     try {
       await axios.post(`/api/online-sessions/${id}/join`);
       setJoined(true);
@@ -68,6 +79,11 @@ const OnlineSession = () => {
       console.error('Error joining session:', error);
       alert(error.response?.data?.message || 'Failed to join session');
     }
+  };
+
+  const handleFaceFailed = () => {
+    setShowFaceVerification(false);
+    alert('Face verification failed. You cannot join the session.');
   };
 
   const handleLeave = async () => {
@@ -133,31 +149,53 @@ const OnlineSession = () => {
             <div className="lg:col-span-2">
               <GlassCard className="h-[500px] flex items-center justify-center">
                 {!joined ? (
-                  <div className="text-center">
-                    <Video className="w-20 h-20 text-purple-400 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-white mb-4">
-                      Ready to join the session?
-                    </h2>
-                    <p className="text-gray-300 mb-6">
-                      Platform: {session?.platform}
-                      <br />
-                      {session?.meetingLink && (
-                        <a
-                          href={session.meetingLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-purple-400 hover:underline"
+                  <div className="text-center w-full px-6">
+                    {showFaceVerification ? (
+                      <div className="max-w-sm mx-auto">
+                        <div className="flex items-center gap-2 mb-4 justify-center">
+                          <ShieldCheck className="text-purple-400" size={20} />
+                          <h2 className="text-white font-semibold">Face Verification Required</h2>
+                        </div>
+                        <FaceVerification
+                          autoStart={true}
+                          onVerified={handleFaceVerified}
+                          onFailed={handleFaceFailed}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <Video className="w-20 h-20 text-purple-400 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-white mb-4">
+                          Ready to join the session?
+                        </h2>
+                        {faceVerified && (
+                          <div className="flex items-center gap-2 justify-center mb-3 text-green-400 text-sm">
+                            <ShieldCheck size={16} />
+                            <span>Face verified</span>
+                          </div>
+                        )}
+                        <p className="text-gray-300 mb-6">
+                          Platform: {session?.platform}
+                          <br />
+                          {session?.meetingLink && (
+                            <a
+                              href={session.meetingLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-purple-400 hover:underline"
+                            >
+                              Open in {session.platform}
+                            </a>
+                          )}
+                        </p>
+                        <button
+                          onClick={handleJoin}
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
                         >
-                          Open in {session.platform}
-                        </a>
-                      )}
-                    </p>
-                    <button
-                      onClick={handleJoin}
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
-                    >
-                      Join Session
-                    </button>
+                          Join Session (Face Verify)
+                        </button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="w-full h-full flex flex-col">

@@ -79,10 +79,7 @@ app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working', timestamp: new Date().toISOString() });
 });
 
-app.use('/api/auth', (req, res, next) => {
-  console.log('Auth route accessed:', req.method, req.path);
-  next();
-}, authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/attendance', attendanceRoutes);

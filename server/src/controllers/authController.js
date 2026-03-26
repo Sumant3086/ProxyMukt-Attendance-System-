@@ -97,25 +97,18 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    console.log('Login attempt:', { email, passwordLength: password?.length });
-    
     // Find user with password field
     const user = await User.findOne({ email }).select('+password');
     
     if (!user || !user.isActive) {
-      console.log('User not found or inactive:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials',
       });
     }
     
-    console.log('User found:', { email: user.email, role: user.role });
-    
     // Check password
     const isPasswordValid = await user.comparePassword(password);
-    
-    console.log('Password valid:', isPasswordValid);
     
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -124,19 +117,13 @@ export const login = async (req, res) => {
       });
     }
     
-    console.log('About to generate tokens...');
-    
     // Generate tokens
     const accessToken = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
     
-    console.log('Tokens generated successfully');
-    
     // Save refresh token
     user.refreshToken = refreshToken;
-    console.log('About to save user with refresh token...');
     await user.save();
-    console.log('User saved successfully');
     
     // Set refresh token in httpOnly cookie
     res.cookie('refreshToken', refreshToken, {
@@ -146,12 +133,8 @@ export const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     
-    console.log('Cookie set successfully');
-    
     // Remove password from response
     user.password = undefined;
-    
-    console.log('Login successful, sending response');
     
     // Log successful login - wrapped in try-catch to prevent crashes
     try {

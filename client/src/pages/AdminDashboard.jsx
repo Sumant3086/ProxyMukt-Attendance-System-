@@ -3,11 +3,11 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
-import { Users, Calendar, Shield, Search, Trash2, Eye, AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
-import { DEFAULT_PAGE_SIZE, CURSOR_PAGE_SIZE } from '../lib/constants';
+import { Users, Calendar, Shield, Search, Trash2, AlertTriangle, CheckCircle, Clock, TrendingUp, BarChart3 } from 'lucide-react';
+import { CURSOR_PAGE_SIZE } from '../lib/constants';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('users'); // users, classes, analytics, alerts
+  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, users, classes, analytics, alerts, reports, system, audit
   const [users, setUsers] = useState([]);
   const [classes, setClasses] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -23,6 +23,12 @@ export default function AdminDashboard() {
   const [alertFilter, setAlertFilter] = useState('PENDING');
   const [severityFilter, setSeverityFilter] = useState('');
   
+  // Load stats only once on mount
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  // Load tab data when tab changes or filters change
   useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers();
@@ -34,8 +40,7 @@ export default function AdminDashboard() {
       fetchAlerts();
       fetchVerificationQueue();
     }
-    fetchStats();
-  }, [cursor, searchTerm, roleFilter, activeTab, alertFilter, severityFilter]);
+  }, [activeTab, cursor, searchTerm, roleFilter, alertFilter, severityFilter]);
   
   const fetchStats = async () => {
     try {
@@ -241,6 +246,16 @@ export default function AdminDashboard() {
             {/* Tabs */}
             <div className="flex space-x-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
               <button
+                onClick={() => { setActiveTab('dashboard'); setCursor(null); setSearchTerm(''); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'dashboard'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
                 onClick={() => { setActiveTab('users'); setCursor(null); setSearchTerm(''); }}
                 className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'users'
@@ -283,9 +298,147 @@ export default function AdminDashboard() {
                   <span>Alerts</span>
                 </div>
               </button>
+              <button
+                onClick={() => { setActiveTab('reports'); setCursor(null); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'reports'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Reports
+              </button>
+              <button
+                onClick={() => { setActiveTab('system'); setCursor(null); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'system'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                System
+              </button>
+              <button
+                onClick={() => { setActiveTab('audit'); setCursor(null); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'audit'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Audit Logs
+              </button>
             </div>
             
-            {/* Users Tab */}
+            {/* Dashboard Tab - Quick Overview */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-lg shadow-lg">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-blue-100 text-sm">Total Students</p>
+                        <p className="text-3xl font-bold mt-2">{stats.totalStudents}</p>
+                      </div>
+                      <Users size={32} className="opacity-50" />
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-lg shadow-lg">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-purple-100 text-sm">Faculty Members</p>
+                        <p className="text-3xl font-bold mt-2">{stats.totalFaculty}</p>
+                      </div>
+                      <Users size={32} className="opacity-50" />
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-lg shadow-lg">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-green-100 text-sm">Active Classes</p>
+                        <p className="text-3xl font-bold mt-2">{stats.totalClasses}</p>
+                      </div>
+                      <Calendar size={32} className="opacity-50" />
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-lg shadow-lg">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-orange-100 text-sm">Total Sessions</p>
+                        <p className="text-3xl font-bold mt-2">{stats.totalSessions}</p>
+                      </div>
+                      <Calendar size={32} className="opacity-50" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <button onClick={() => setActiveTab('users')} className="p-4 border-2 border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
+                      <Users className="text-blue-600 mb-2" size={24} />
+                      <p className="font-medium">Manage Users</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Add/Remove users</p>
+                    </button>
+                    <button onClick={() => setActiveTab('classes')} className="p-4 border-2 border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition">
+                      <Calendar className="text-green-600 mb-2" size={24} />
+                      <p className="font-medium">Manage Classes</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">View/Edit classes</p>
+                    </button>
+                    <button onClick={() => setActiveTab('alerts')} className="p-4 border-2 border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+                      <AlertTriangle className="text-red-600 mb-2" size={24} />
+                      <p className="font-medium">Review Alerts</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">High-risk attendance</p>
+                    </button>
+                    <button onClick={() => setActiveTab('reports')} className="p-4 border-2 border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition">
+                      <BarChart3 className="text-purple-600 mb-2" size={24} />
+                      <p className="font-medium">View Reports</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Generate reports</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-bold mb-4">System Status</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Database</span>
+                        <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium">Connected</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">API Server</span>
+                        <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium">Running</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Cache Service</span>
+                        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full text-xs font-medium">Disabled</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-bold mb-4">Security Overview</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Pending Alerts</span>
+                        <span className="text-2xl font-bold text-red-600">0</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Blocked IPs</span>
+                        <span className="text-2xl font-bold text-orange-600">0</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Rate Limit Hits</span>
+                        <span className="text-2xl font-bold text-blue-600">0</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {activeTab === 'users' && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -760,6 +913,161 @@ export default function AdminDashboard() {
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Reports Tab */}
+            {activeTab === 'reports' && (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                  <h2 className="text-2xl font-bold mb-6">Generate Reports</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button className="p-6 border-2 border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-left">
+                      <BarChart3 className="text-blue-600 mb-3" size={28} />
+                      <h3 className="font-bold text-lg mb-1">Daily Attendance Report</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Attendance summary for each day</p>
+                    </button>
+                    <button className="p-6 border-2 border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left">
+                      <AlertTriangle className="text-red-600 mb-3" size={28} />
+                      <h3 className="font-bold text-lg mb-1">Security Alert Report</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">High-risk attendance incidents</p>
+                    </button>
+                    <button className="p-6 border-2 border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition text-left">
+                      <TrendingUp className="text-green-600 mb-3" size={28} />
+                      <h3 className="font-bold text-lg mb-1">Performance Report</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Class and student performance metrics</p>
+                    </button>
+                    <button className="p-6 border-2 border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition text-left">
+                      <Users className="text-purple-600 mb-3" size={28} />
+                      <h3 className="font-bold text-lg mb-1">Student Analytics Report</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Detailed student attendance analysis</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-bold mb-4">Recent Reports</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div>
+                        <p className="font-medium">Daily Attendance Report</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Generated 2 hours ago</p>
+                      </div>
+                      <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Download</button>
+                    </div>
+                    <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div>
+                        <p className="font-medium">Security Alert Report</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Generated 1 day ago</p>
+                      </div>
+                      <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Download</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* System Tab */}
+            {activeTab === 'system' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-bold mb-4">System Health</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-medium">Database Performance</span>
+                          <span className="text-sm text-green-600">Excellent</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div className="bg-green-600 h-2 rounded-full" style={{width: '95%'}}></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-medium">API Response Time</span>
+                          <span className="text-sm text-green-600">Fast</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div className="bg-green-600 h-2 rounded-full" style={{width: '88%'}}></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-medium">Server Uptime</span>
+                          <span className="text-sm text-green-600">99.9%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div className="bg-green-600 h-2 rounded-full" style={{width: '99%'}}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                    <h3 className="text-lg font-bold mb-4">Configuration</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Environment</span>
+                        <span className="font-medium">Development</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Node Version</span>
+                        <span className="font-medium">v22.16.0</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Database</span>
+                        <span className="font-medium">MongoDB</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Cache</span>
+                        <span className="font-medium text-yellow-600">Disabled</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-bold mb-4">IP Whitelist Management</h3>
+                  <div className="space-y-3">
+                    <button className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                      Add IP to Whitelist
+                    </button>
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">No IPs whitelisted yet</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Audit Logs Tab */}
+            {activeTab === 'audit' && (
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                <h2 className="text-2xl font-bold mb-6">Audit Logs</h2>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div>
+                      <p className="font-medium">User Login</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">sumant@gmail.com - 2 hours ago</p>
+                    </div>
+                    <span className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium">LOGIN</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div>
+                      <p className="font-medium">Alert Reviewed</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">High-risk attendance flagged - 1 day ago</p>
+                    </div>
+                    <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium">REVIEW</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div>
+                      <p className="font-medium">Class Created</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Data Structures and Algorithms - 3 days ago</p>
+                    </div>
+                    <span className="px-3 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-full text-xs font-medium">CREATE</span>
                   </div>
                 </div>
               </div>

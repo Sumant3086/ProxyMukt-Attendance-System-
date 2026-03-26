@@ -18,6 +18,7 @@ export const MONTHLY_TREND_MONTHS = 6;            // months of monthly trend dat
 // PAGINATION
 // ============================================
 export const DEFAULT_PAGE_SIZE = 10;              // users per page in admin dashboard
+export const CURSOR_PAGE_SIZE = 20;               // cursor-based pagination size
 
 // ============================================
 // USER ROLES

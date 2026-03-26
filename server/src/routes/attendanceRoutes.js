@@ -9,12 +9,13 @@ import {
 } from '../controllers/attendanceController.js';
 import { authenticate } from '../middleware/auth.js';
 import { authorize } from '../middleware/role.js';
+import { attendanceRateLimit } from '../middleware/rateLimitMiddleware.js';
 
 const router = express.Router();
 
 router.use(authenticate);
 
-router.post('/mark', authorize('STUDENT'), markAttendance);
+router.post('/mark', authorize('STUDENT'), attendanceRateLimit, markAttendance);
 router.post('/check-nearby', authorize('STUDENT'), checkNearbySession);
 router.get('/my-attendance', authorize('STUDENT'), getStudentAttendance);
 router.get('/stats', authorize('STUDENT'), getAttendanceStats);

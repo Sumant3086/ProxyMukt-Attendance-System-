@@ -3,29 +3,39 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
-import { Users, Calendar, Shield, Search, Trash2, Eye } from 'lucide-react';
-import { DEFAULT_PAGE_SIZE } from '../lib/constants';
+import { Users, Calendar, Shield, Search, Trash2, Eye, AlertTriangle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { DEFAULT_PAGE_SIZE, CURSOR_PAGE_SIZE } from '../lib/constants';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('users'); // users, classes
+  const [activeTab, setActiveTab] = useState('users'); // users, classes, analytics, alerts
   const [users, setUsers] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [verificationQueue, setVerificationQueue] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [cursor, setCursor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [pagination, setPagination] = useState(null);
   const [stats, setStats] = useState({ totalStudents: 0, totalFaculty: 0, totalSessions: 0, totalClasses: 0 });
   const [showConfirm, setShowConfirm] = useState(null);
+  const [alertFilter, setAlertFilter] = useState('PENDING');
+  const [severityFilter, setSeverityFilter] = useState('');
   
   useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers();
     } else if (activeTab === 'classes') {
       fetchClasses();
+    } else if (activeTab === 'analytics') {
+      fetchAnalytics();
+    } else if (activeTab === 'alerts') {
+      fetchAlerts();
+      fetchVerificationQueue();
     }
     fetchStats();
-  }, [currentPage, searchTerm, roleFilter, activeTab]);
+  }, [cursor, searchTerm, roleFilter, activeTab, alertFilter, severityFilter]);
   
   const fetchStats = async () => {
     try {
@@ -35,13 +45,60 @@ export default function AdminDashboard() {
       console.error('Error fetching stats:', error);
     }
   };
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axiosInstance.get('/analytics/section?section=all');
+      setAnalytics(data.data);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAlerts = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        status: alertFilter,
+        ...(severityFilter && { severity: severityFilter })
+      });
+      const { data } = await axiosInstance.get(`/alerts?${params}`);
+      setAlerts(data.data.alerts);
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchVerificationQueue = async () => {
+    try {
+      const { data } = await axiosInstance.get('/alerts/queue/list?status=QUEUED');
+      setVerificationQueue(data.data.queue);
+    } catch (error) {
+      console.error('Error fetching verification queue:', error);
+    }
+  };
+  
+  const handleReviewAlert = async (alertId, status, notes) => {
+    try {
+      await axiosInstance.put(`/alerts/${alertId}/review`, { status, notes });
+      fetchAlerts();
+      fetchVerificationQueue();
+    } catch (error) {
+      alert('Error reviewing alert: ' + (error.response?.data?.message || error.message));
+    }
+  };
   
   const fetchUsers = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
-        page: currentPage,
-        limit: DEFAULT_PAGE_SIZE,
+        limit: CURSOR_PAGE_SIZE,
+        ...(cursor && { cursor }),
         ...(searchTerm && { search: searchTerm }),
         ...(roleFilter && { role: roleFilter })
       });
@@ -60,8 +117,8 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       const params = new URLSearchParams({
-        page: currentPage,
-        limit: DEFAULT_PAGE_SIZE,
+        limit: CURSOR_PAGE_SIZE,
+        ...(cursor && { cursor }),
         ...(searchTerm && { search: searchTerm })
       });
       
@@ -182,10 +239,10 @@ export default function AdminDashboard() {
             </div>
 
             {/* Tabs */}
-            <div className="flex space-x-4 mb-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex space-x-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
               <button
-                onClick={() => { setActiveTab('users'); setCurrentPage(1); }}
-                className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                onClick={() => { setActiveTab('users'); setCursor(null); setSearchTerm(''); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'users'
                     ? 'border-indigo-600 text-indigo-600'
                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -194,14 +251,37 @@ export default function AdminDashboard() {
                 Users
               </button>
               <button
-                onClick={() => { setActiveTab('classes'); setCurrentPage(1); }}
-                className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                onClick={() => { setActiveTab('classes'); setCursor(null); setSearchTerm(''); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'classes'
                     ? 'border-indigo-600 text-indigo-600'
                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
                 Classes
+              </button>
+              <button
+                onClick={() => { setActiveTab('analytics'); setCursor(null); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'analytics'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Analytics
+              </button>
+              <button
+                onClick={() => { setActiveTab('alerts'); setCursor(null); }}
+                className={`px-4 py-2 font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'alerts'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <div className="flex items-center space-x-1">
+                  <AlertTriangle size={16} />
+                  <span>Alerts</span>
+                </div>
               </button>
             </div>
             
@@ -297,19 +377,18 @@ export default function AdminDashboard() {
                   <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center">
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Page {currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
+                        Showing {pagination.count} of {pagination.totalCount} users
                       </p>
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          disabled={!pagination.hasPrev}
-                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
+                          onClick={() => setCursor(null)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                         >
-                          Prev
+                          First
                         </button>
                         <button
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.totalPages))}
-                          disabled={!pagination.hasNext}
+                          onClick={() => setCursor(pagination.cursor)}
+                          disabled={!pagination.hasMore}
                           className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
                         >
                           Next
@@ -412,19 +491,18 @@ export default function AdminDashboard() {
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between items-center">
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Page {currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
+                          Showing {pagination.count} of {pagination.totalCount} classes
                         </p>
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={!pagination.hasPrev}
-                            className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
+                            onClick={() => setCursor(null)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                           >
-                            Prev
+                            First
                           </button>
                           <button
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.totalPages))}
-                            disabled={!pagination.hasNext}
+                            onClick={() => setCursor(pagination.cursor)}
+                            disabled={!pagination.hasMore}
                             className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
                           >
                             Next
@@ -437,7 +515,255 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Confirmation Modal */}
+            {/* Analytics Tab */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-6">
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader size="md" />
+                  </div>
+                ) : analytics ? (
+                  <>
+                    {/* Overview Section */}
+                    {analytics.overview && (
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Total Students</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.totalStudents}</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Total Faculty</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.totalFaculty}</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Total Sessions</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.totalSessions}</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Live Sessions</p>
+                          <p className="text-2xl font-bold text-green-600">{analytics.overview.liveSessions}</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Avg Attendance</p>
+                          <p className="text-2xl font-bold text-blue-600">{analytics.overview.averageAttendance}%</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Trends Section */}
+                    {analytics.trends && analytics.trends.length > 0 && (
+                      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold mb-4">Daily Attendance Trend (Last 30 Days)</h3>
+                        <div className="space-y-2">
+                          {analytics.trends.slice(-7).map((trend, idx) => (
+                            <div key={idx} className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600 dark:text-gray-400">{trend.date}</span>
+                              <div className="flex-1 mx-4 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{width: `${trend.percentage}%`}}
+                                ></div>
+                              </div>
+                              <span className="text-sm font-medium">{trend.percentage}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* At-Risk Students */}
+                    {analytics.students && analytics.students.length > 0 && (
+                      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold mb-4 flex items-center space-x-2">
+                          <AlertTriangle className="text-red-600" size={20} />
+                          <span>At-Risk Students (Below 75%)</span>
+                        </h3>
+                        <div className="space-y-3">
+                          {analytics.students.slice(0, 10).map((student, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{student.name}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{student.email}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-red-600">{student.attendanceRate}%</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{student.present}/{student.total} sessions</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sessions Breakdown */}
+                    {analytics.sessions && analytics.sessions.length > 0 && (
+                      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                        <h3 className="text-lg font-bold mb-4">Recent Sessions</h3>
+                        <div className="space-y-2">
+                          {analytics.sessions.slice(0, 5).map((session, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{session.title}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{session.class}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold">{session.attendance}/{session.total}</p>
+                                <p className="text-sm text-blue-600">{session.percentage}%</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600 dark:text-gray-400">No analytics data available</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Alerts Tab */}
+            {activeTab === 'alerts' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Alerts List */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">High-Risk Alerts</h2>
+                      <div className="flex space-x-2">
+                        <select
+                          value={alertFilter}
+                          onChange={(e) => setAlertFilter(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
+                        >
+                          <option value="PENDING">Pending</option>
+                          <option value="REVIEWED">Reviewed</option>
+                          <option value="APPROVED">Approved</option>
+                          <option value="REJECTED">Rejected</option>
+                        </select>
+                        <select
+                          value={severityFilter}
+                          onChange={(e) => setSeverityFilter(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700"
+                        >
+                          <option value="">All Severity</option>
+                          <option value="CRITICAL">Critical</option>
+                          <option value="HIGH">High</option>
+                          <option value="MEDIUM">Medium</option>
+                          <option value="LOW">Low</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
+                      {loading ? (
+                        <div className="flex justify-center py-8">
+                          <Loader size="sm" />
+                        </div>
+                      ) : alerts.length > 0 ? (
+                        alerts.map((alert) => (
+                          <div key={alert._id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{alert.student?.name}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{alert.student?.studentId}</p>
+                              </div>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                alert.severity === 'CRITICAL' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                alert.severity === 'HIGH' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                                alert.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                              }`}>
+                                {alert.severity}
+                              </span>
+                            </div>
+                            <div className="mb-2">
+                              <p className="text-sm font-bold text-red-600">Risk Score: {alert.riskScore}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                {alert.riskFactors?.join(', ')}
+                              </p>
+                            </div>
+                            <div className="flex space-x-2">
+                              {alert.status === 'PENDING' && (
+                                <>
+                                  <button
+                                    onClick={() => handleReviewAlert(alert._id, 'APPROVED', 'Approved by admin')}
+                                    className="flex-1 px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleReviewAlert(alert._id, 'REJECTED', 'Rejected by admin')}
+                                    className="flex-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                              {alert.status === 'REVIEWED' && (
+                                <span className="text-xs text-gray-600 dark:text-gray-400">
+                                  {alert.reviewedBy?.name} reviewed this
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-8 text-center">
+                          <CheckCircle className="mx-auto text-green-600 mb-2" size={32} />
+                          <p className="text-gray-600 dark:text-gray-400">No alerts</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Verification Queue */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">Verification Queue</h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{verificationQueue.length} pending reviews</p>
+                    </div>
+
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
+                      {verificationQueue.length > 0 ? (
+                        verificationQueue.map((task) => (
+                          <div key={task._id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{task.student?.name}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{task.student?.studentId}</p>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Clock size={14} className="text-orange-600" />
+                                <span className="text-xs font-medium text-orange-600">Priority {task.priority}</span>
+                              </div>
+                            </div>
+                            <div className="mb-3">
+                              <p className="text-sm text-gray-700 dark:text-gray-300">
+                                Risk Score: <span className="font-bold text-red-600">{task.alert?.riskScore}</span>
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleReviewAlert(task.alert?._id, 'APPROVED', 'Verified')}
+                              className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                            >
+                              Review Now
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-8 text-center">
+                          <CheckCircle className="mx-auto text-green-600 mb-2" size={32} />
+                          <p className="text-gray-600 dark:text-gray-400">Queue is empty</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {showConfirm && (
               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full">

@@ -19,6 +19,8 @@ import zoomRoutes from './routes/zoomRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
+import appealRoutes from './routes/appealRoutes.js';
+import ipWhitelistRoutes from './routes/ipWhitelistRoutes.js';
 import { generateQRToken, getQRRotationInterval } from './utils/qr.js';
 
 dotenv.config();
@@ -87,6 +89,8 @@ app.use('/api/zoom', zoomRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/appeals', appealRoutes);
+app.use('/api/ip-whitelist', ipWhitelistRoutes);
 
 // Error handlers
 app.use(notFound);

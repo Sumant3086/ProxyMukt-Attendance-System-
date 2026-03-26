@@ -4,9 +4,11 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import FacultyDashboard from './pages/FacultyDashboard';
+import FacultyAnalytics from './pages/FacultyAnalytics';
 import StudentDashboard from './pages/StudentDashboard';
 import StudentAttendance from './pages/StudentAttendance';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminAnalytics from './pages/AdminAnalytics';
 import StartSession from './pages/StartSession';
 import ScanQR from './pages/ScanQR';
 import AutoAttendance from './pages/AutoAttendance';
@@ -93,10 +95,19 @@ function App() {
         />
         
         <Route
-          path="/analytics"
+          path="/admin/analytics"
           element={
-            <ProtectedRoute allowedRoles={['FACULTY', 'ADMIN']}>
-              <Analytics />
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <AdminAnalytics />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/faculty/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <FacultyAnalytics />
             </ProtectedRoute>
           }
         />

@@ -11,12 +11,12 @@ export default function Sidebar() {
       case 'ADMIN':
         return [
           { path: '/admin', icon: Home, label: 'Dashboard' },
-          { path: '/analytics', icon: BarChart3, label: 'Analytics' },
+          { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
         ];
       case 'FACULTY':
         return [
           { path: '/faculty', icon: Home, label: 'Dashboard' },
-          { path: '/analytics', icon: BarChart3, label: 'Analytics' },
+          { path: '/faculty/analytics', icon: BarChart3, label: 'Analytics' },
         ];
       case 'STUDENT':
         return [

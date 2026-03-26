@@ -26,6 +26,30 @@ const seedDatabase = async () => {
   try {
     await connectDB();
 
+    // Check if data already exists
+    const userCount = await User.countDocuments();
+    if (userCount > 0) {
+      console.log('\n✅ Database already seeded with data!');
+      console.log(`   Found ${userCount} users in database`);
+      console.log('\n📊 EXISTING DATA:');
+      
+      const adminCount = await User.countDocuments({ role: 'ADMIN' });
+      const facultyCount = await User.countDocuments({ role: 'FACULTY' });
+      const studentCount = await User.countDocuments({ role: 'STUDENT' });
+      const classCount = await Class.countDocuments();
+      const sessionCount = await Session.countDocuments();
+      
+      console.log(`   Admins    : ${adminCount}`);
+      console.log(`   Faculty   : ${facultyCount}`);
+      console.log(`   Students  : ${studentCount}`);
+      console.log(`   Classes   : ${classCount}`);
+      console.log(`   Sessions  : ${sessionCount}`);
+      console.log('\n💡 To reseed the database, delete all collections and run: npm run seed\n');
+      
+      process.exit(0);
+    }
+
+    console.log('🌱 Clearing existing data...');
     await Promise.all([
       User.deleteMany({}),
       Class.deleteMany({}),

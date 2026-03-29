@@ -8,6 +8,8 @@
 [![MongoDB](https://img.shields.io/badge/mongodb-8.0.3-green)](https://www.mongodb.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+<img width="1914" height="915" alt="ProxyMukt Application Screenshot" src="https://github.com/user-attachments/assets/86a432fc-eeeb-482e-8a9c-18116a367b68" />
+
 ## Tech Stack
 
 **Frontend:** React 18 • Vite • Tailwind CSS • Zustand • Socket.IO Client • Recharts • Framer Motion • Face-API.js

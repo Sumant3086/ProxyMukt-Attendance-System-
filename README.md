@@ -83,8 +83,7 @@ Start both backend (port 5000) and frontend (port 5173) servers in separate term
 - **Backend API:** http://localhost:5000/api
 - **Live Demo:** https://proxymukt.onrender.com
 
-**Default Login:**
-- Admin: sumant@gmail.com / @Sumant3086
+**Test Credentials:**
 - Faculty: faculty1@gmail.com / faculty1
 - Student: student1@gmail.com / student1
 

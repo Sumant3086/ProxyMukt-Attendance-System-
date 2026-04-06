@@ -44,8 +44,7 @@ const ipWhitelistSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
-ipWhitelistSchema.index({ ip: 1 });
+// Indexes (ip already has unique index from schema definition)
 ipWhitelistSchema.index({ type: 1 });
 ipWhitelistSchema.index({ student: 1 });
 ipWhitelistSchema.index({ expiresAt: 1 });

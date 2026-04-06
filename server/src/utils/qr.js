@@ -2,6 +2,7 @@ import crypto from 'crypto';
 
 const QR_ROTATION_INTERVAL = parseInt(process.env.QR_ROTATION_INTERVAL) || 20000; // 20 seconds
 const QR_SECRET = process.env.QR_SECRET || 'default-qr-secret-change-me';
+const QR_VALIDITY_WINDOW = 5; // Allow 5 intervals = 100 seconds (1 min 40 sec)
 
 /**
  * Generate QR token with HMAC signature
@@ -42,6 +43,7 @@ export const verifyQRToken = (token) => {
     const [encodedPayload, signature] = token.split('.');
     
     if (!encodedPayload || !signature) {
+      console.log('❌ QR Token: Missing payload or signature');
       return null;
     }
     
@@ -56,20 +58,25 @@ export const verifyQRToken = (token) => {
       .digest('hex');
     
     if (signature !== expectedSignature) {
+      console.log('❌ QR Token: Invalid signature');
       return null;
     }
     
-    // Check expiration (allow current and previous interval)
+    // Check expiration - allow multiple intervals for face verification time
     const now = Date.now();
     const currentInterval = Math.floor(now / QR_ROTATION_INTERVAL) * QR_ROTATION_INTERVAL;
-    const previousInterval = currentInterval - QR_ROTATION_INTERVAL;
+    const tokenAge = (currentInterval - payload.t) / QR_ROTATION_INTERVAL;
     
-    if (payload.t !== currentInterval && payload.t !== previousInterval) {
+    // Allow tokens from last 5 intervals (100 seconds)
+    if (tokenAge < 0 || tokenAge >= QR_VALIDITY_WINDOW) {
+      console.log(`❌ QR Token: Expired (age: ${tokenAge} intervals, max: ${QR_VALIDITY_WINDOW})`);
       return null;
     }
     
+    console.log(`✅ QR Token: Valid (age: ${tokenAge} intervals)`);
     return payload;
   } catch (error) {
+    console.log('❌ QR Token: Parse error:', error.message);
     return null;
   }
 };

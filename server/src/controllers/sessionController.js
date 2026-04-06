@@ -186,7 +186,9 @@ export const getSessions = async (req, res) => {
     const sessions = await Session.find(query)
       .populate('class', 'name code')
       .populate('faculty', 'name email')
-      .sort('-date');
+      .select('-qrSecret') // Exclude sensitive data
+      .sort('-date')
+      .lean(); // Convert to plain JS objects for faster serialization
     
     res.json({
       success: true,

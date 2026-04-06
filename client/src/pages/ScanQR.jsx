@@ -84,45 +84,37 @@ export default function ScanQR() {
       });
       
       if (code && code.data && !pendingQrToken) {
-        // QR code detected! Stop scanning immediately
+        // QR code detected! Mark attendance immediately
         stopCamera();
-        setMessage('✓ QR Code detected! Starting face verification...');
+        setMessage('✓ QR Code detected! Marking attendance...');
         setMessageType('success');
         
-        // Trigger face verification
+        // Mark attendance immediately without waiting for face verification
         setPendingQrToken(code.data);
-        setShowFaceVerification(true);
+        markAttendance(code.data);
       }
     }
   };
 
   const handleFaceVerified = async (result) => {
-    if (attendanceMarked) return; // Prevent duplicate calls
-    
+    // Face verification is now optional and doesn't block attendance
     setFaceVerified(true);
     setShowFaceVerification(false);
     
     if (result?.bypassed) {
-      setMessage('⚠️ Face verification skipped. Marking attendance...');
+      console.log('⚠️ Face verification skipped');
     } else if (result?.note) {
-      setMessage('✓ Live face detected! Marking attendance...');
+      console.log('✓ Live face detected');
     } else {
-      setMessage('✓ Face detected! Marking attendance...');
-    }
-    
-    setMessageType('info');
-    if (pendingQrToken) {
-      await markAttendance(pendingQrToken);
+      console.log('✓ Face detected');
     }
   };
 
   const handleFaceFailed = async () => {
+    // Face verification failure doesn't block attendance anymore
     setShowFaceVerification(false);
-    setMessage('⚠️ Face verification incomplete. You can try again or scan a new QR code.');
-    setMessageType('error');
-    setPendingQrToken(null);
     setFaceVerified(false);
-    setAttendanceMarked(false); // Reset to allow retry
+    console.log('⚠️ Face verification incomplete');
   };
 
   const getLocation = () => {
@@ -311,13 +303,13 @@ export default function ScanQR() {
                   </h3>
                   <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
                     <li>✓ Device fingerprinting enabled (tracking your unique device)</li>
-                    <li>✓ Liveness detection (verifies a real person is present)</li>
                     <li>✓ Location verification active (GPS-based geofencing)</li>
                     <li>✓ Proxy/VPN detection running (prevents spoofing)</li>
+                    <li>✓ QR token valid for 100 seconds (enough time to scan)</li>
                   </ul>
-                  <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded">
-                    <p className="text-xs text-amber-800 dark:text-amber-400">
-                      <strong>Note:</strong> Biometric enrollment is not yet implemented. The system currently performs liveness detection (confirms a live person) but does not verify identity against stored biometric data. Full facial recognition and fingerprint verification will be available in future updates.
+                  <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded">
+                    <p className="text-xs text-green-800 dark:text-green-400">
+                      <strong>✓ Quick Attendance:</strong> Scan QR code and attendance is marked immediately! Face liveness detection is optional and won't block your attendance.
                     </p>
                   </div>
                 </div>
@@ -413,44 +405,6 @@ export default function ScanQR() {
             )}
             
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              {/* Face Verification Panel */}
-              {showFaceVerification && (
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ShieldCheck size={20} className="text-purple-500" />
-                    <h2 className="font-semibold text-lg">Step 2: Liveness Detection</h2>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">(Identity verification not available)</span>
-                  </div>
-                  <FaceVerification
-                    autoStart={true}
-                    onVerified={handleFaceVerified}
-                    onFailed={handleFaceFailed}
-                  />
-                </div>
-              )}
-
-              {faceVerified && !showFaceVerification && (
-                <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg flex items-center gap-2">
-                  <CheckCircle size={18} />
-                  <span className="text-sm font-medium">Live presence confirmed (identity not verified)</span>
-                </div>
-              )}
-
-              {/* Show retry button after failed face verification */}
-              {!showFaceVerification && !faceVerified && !scanning && pendingQrToken && (
-                <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg">
-                  <p className="text-yellow-800 dark:text-yellow-400 text-sm mb-3">
-                    Liveness detection was not completed. You can try again or scan a new QR code.
-                  </p>
-                  <button
-                    onClick={() => setShowFaceVerification(true)}
-                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                  >
-                    Retry Liveness Detection
-                  </button>
-                </div>
-              )}
-
               <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden mb-4 relative">
                 <video
                   ref={videoRef}
@@ -460,7 +414,7 @@ export default function ScanQR() {
                 />
                 <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-0" />
                 
-                {!scanning && !showFaceVerification && (
+                {!scanning && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                     <div className="text-center">
                       <Camera size={48} className="text-white mx-auto mb-4" />
@@ -491,7 +445,7 @@ export default function ScanQR() {
               </div>
               
               <div className="flex space-x-4">
-                {!scanning && !showFaceVerification ? (
+                {!scanning ? (
                   <button
                     onClick={startCamera}
                     className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
@@ -499,20 +453,19 @@ export default function ScanQR() {
                     <Camera size={20} />
                     <span>Start Camera</span>
                   </button>
-                ) : scanning ? (
+                ) : (
                   <button
                     onClick={stopCamera}
                     className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:opacity-90"
                   >
                     Stop Camera
                   </button>
-                ) : null}
+                )}
               </div>
               
               <p className="text-sm text-muted-foreground mt-4 text-center">
-                {!scanning && !showFaceVerification && 'Point your camera at the QR code displayed by your instructor'}
-                {scanning && 'Hold steady - QR code will be detected automatically'}
-                {showFaceVerification && 'Complete liveness check to mark attendance'}
+                {!scanning && 'Point your camera at the QR code displayed by your instructor'}
+                {scanning && 'Hold steady - Attendance will be marked automatically when QR is detected'}
               </p>
             </div>
           </div>

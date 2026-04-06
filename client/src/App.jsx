@@ -1,22 +1,41 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
+import Loader from './components/Loader';
+import { startKeepAlive } from './utils/keepAlive';
+
+// Eager load critical pages
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import FacultyDashboard from './pages/FacultyDashboard';
-import FacultyAnalytics from './pages/FacultyAnalytics';
-import StudentDashboard from './pages/StudentDashboard';
-import StudentAttendance from './pages/StudentAttendance';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminAnalytics from './pages/AdminAnalytics';
-import StartSession from './pages/StartSession';
-import ScanQR from './pages/ScanQR';
-import AutoAttendance from './pages/AutoAttendance';
-import Analytics from './pages/Analytics';
-import StudentAnalytics from './pages/StudentAnalytics';
-import AuditLogs from './pages/AuditLogs';
-import OnlineSession from './pages/OnlineSession';
-import OnlineSessionMonitor from './pages/OnlineSessionMonitor';
+
+// Lazy load dashboard pages (code splitting)
+const FacultyDashboard = lazy(() => import('./pages/FacultyDashboard'));
+const FacultyAnalytics = lazy(() => import('./pages/FacultyAnalytics'));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentAttendance = lazy(() => import('./pages/StudentAttendance'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminAnalytics = lazy(() => import('./pages/AdminAnalytics'));
+const StartSession = lazy(() => import('./pages/StartSession'));
+const ScanQR = lazy(() => import('./pages/ScanQR'));
+const AutoAttendance = lazy(() => import('./pages/AutoAttendance'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const StudentAnalytics = lazy(() => import('./pages/StudentAnalytics'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const OnlineSession = lazy(() => import('./pages/OnlineSession'));
+const OnlineSessionMonitor = lazy(() => import('./pages/OnlineSessionMonitor'));
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <Loader size="lg" />
+        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+      </div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, isAuthenticated } = useAuthStore();
@@ -29,11 +48,18 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/" replace />;
   }
   
-  return children;
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
 function App() {
   const { user, isAuthenticated } = useAuthStore();
+  
+  // Start keep-alive service to prevent cold starts
+  useEffect(() => {
+    if (import.meta.env.PROD) {
+      startKeepAlive();
+    }
+  }, []);
   
   const getDashboard = () => {
     if (!isAuthenticated) return <Navigate to="/login" />;

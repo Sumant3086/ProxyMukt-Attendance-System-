@@ -178,12 +178,14 @@ export default function StartSession() {
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h1 className="text-3xl font-bold">{session?.title}</h1>
-                <p className="text-muted-foreground">{session?.class?.name}</p>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  {session?.title}
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">📚 {session?.class?.name}</p>
               </div>
               <button
                 onClick={handleEndSession}
-                className="flex items-center space-x-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:opacity-90"
+                className="btn-danger flex items-center space-x-2"
               >
                 <StopCircle size={20} />
                 <span>End Session</span>
@@ -191,48 +193,54 @@ export default function StartSession() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                <div className="flex items-center space-x-3 mb-2">
-                  <Users className="text-primary" size={24} />
-                  <h3 className="text-lg font-semibold">Attendance</h3>
+              <div className="card-elevated p-6 hover-lift">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <Users className="text-white" size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Attendance</h3>
                 </div>
-                <p className="text-3xl font-bold">
+                <p className="text-4xl font-bold text-gradient mb-2">
                   {session?.attendanceCount || 0} / {session?.totalStudents || 0}
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {session?.totalStudents > 0
-                    ? `${((session.attendanceCount / session.totalStudents) * 100).toFixed(1)}%`
-                    : '0%'}
+                    ? `${((session.attendanceCount / session.totalStudents) * 100).toFixed(1)}% present`
+                    : '0% present'}
                 </p>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                <div className="flex items-center space-x-3 mb-2">
-                  <Clock className="text-green-500" size={24} />
-                  <h3 className="text-lg font-semibold">Session Time</h3>
+              <div className="card-elevated p-6 hover-lift">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                    <Clock className="text-white" size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Session Time</h3>
                 </div>
-                <p className="text-lg">
+                <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   Started: {session?.startTime ? new Date(session.startTime).toLocaleTimeString() : 'N/A'}
                 </p>
-                <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                  LIVE
+                <span className="badge badge-success">
+                  🔴 LIVE
                 </span>
               </div>
             </div>
             
             {/* QR Code Control & Verification Settings */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-8">
+            <div className="card-elevated p-6 mb-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <QrCode className="text-indigo-500" size={24} />
-                  <h3 className="text-lg font-semibold">QR Code & Verification</h3>
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <QrCode className="text-white" size={24} />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">QR Code & Verification</h3>
                 </div>
                 <button
                   onClick={toggleQR}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                  className={`px-6 py-3 rounded-xl font-bold transition-all shadow-lg ${
                     qrEnabled
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                      ? 'btn-success'
+                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white'
                   }`}
                 >
                   {qrEnabled ? '✓ QR Enabled' : 'Enable QR Code'}
@@ -241,14 +249,16 @@ export default function StartSession() {
               
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <Settings className="text-indigo-500" size={20} />
-                  <h4 className="font-semibold">Verification Requirements</h4>
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <Settings className="text-white" size={18} />
+                  </div>
+                  <h4 className="font-bold text-lg text-gray-900 dark:text-white">Verification Requirements</h4>
                 </div>
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors text-sm"
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg hover:from-indigo-200 hover:to-purple-200 dark:hover:from-indigo-900/50 dark:hover:to-purple-900/50 transition-all text-sm font-semibold"
                 >
-                  {showSettings ? 'Hide Settings' : 'Configure'}
+                  {showSettings ? '✓ Hide Settings' : '⚙️ Configure'}
                 </button>
               </div>
               
@@ -328,10 +338,10 @@ export default function StartSession() {
               </div>
               
               {showSettings && (
-                <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                  <h4 className="font-semibold mb-4">Configure Active Verification Methods</h4>
-                  <div className="space-y-3">
-                    <label className="flex items-center space-x-3 cursor-pointer">
+                <div className="mt-6 p-6 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border-2 border-indigo-200 dark:border-indigo-800 shadow-inner">
+                  <h4 className="font-bold text-lg mb-4 text-gray-900 dark:text-white">⚙️ Configure Active Verification Methods</h4>
+                  <div className="space-y-4">
+                    <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors">
                       <input
                         type="checkbox"
                         checked={verificationSettings.faceVerification}
@@ -341,10 +351,10 @@ export default function StartSession() {
                         }}
                         className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
                       />
-                      <span className="font-medium">Require Face Liveness Detection (Real-time movement check)</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">👤 Require Face Liveness Detection (Real-time movement check)</span>
                     </label>
                     
-                    <label className="flex items-center space-x-3 cursor-pointer">
+                    <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors">
                       <input
                         type="checkbox"
                         checked={verificationSettings.locationVerification}
@@ -354,40 +364,42 @@ export default function StartSession() {
                         }}
                         className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
                       />
-                      <span className="font-medium">Require GPS Location Verification (Geofencing)</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">📍 Require GPS Location Verification (Geofencing)</span>
                     </label>
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-4">
-                    Students will need to complete all enabled verification methods. Background security checks (IP, proxy, device fingerprint) run automatically.
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-4 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                    💡 Students will need to complete all enabled verification methods. Background security checks (IP, proxy, device fingerprint) run automatically.
                   </p>
                 </div>
               )}
             </div>
             
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow">
-              <h2 className="text-2xl font-bold mb-6 text-center">Attendance QR Code</h2>
+            <div className="card-elevated p-8">
+              <h2 className="text-3xl font-bold mb-6 text-center text-gradient">Attendance QR Code</h2>
               {qrEnabled ? (
                 <div className="flex justify-center">
                   <QRDisplay token={qrToken} rotationInterval={20000} />
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <QrCode size={64} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+                    <QrCode size={48} className="text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-lg">
                     QR Code is currently disabled
                   </p>
                   <button
                     onClick={toggleQR}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="btn-primary"
                   >
-                    Enable QR Code
+                    🚀 Enable QR Code
                   </button>
                 </div>
               )}
-              <p className="text-center text-sm text-muted-foreground mt-6">
+              <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
                 {qrEnabled 
-                  ? 'Students should scan this QR code to mark their attendance'
-                  : 'Enable QR code to allow students to mark attendance'
+                  ? '📱 Students should scan this QR code to mark their attendance'
+                  : '💡 Enable QR code to allow students to mark attendance'
                 }
               </p>
             </div>

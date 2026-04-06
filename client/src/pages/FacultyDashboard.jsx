@@ -187,10 +187,15 @@ export default function FacultyDashboard() {
         <main className="flex-1 p-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
-              <h1 className="text-3xl font-bold">Faculty Dashboard</h1>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Faculty Dashboard
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your classes and sessions</p>
+              </div>
               <button
                 onClick={() => setShowCreateClass(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+                className="btn-primary flex items-center space-x-2"
               >
                 <Plus size={20} />
                 <span>Create Class</span>
@@ -198,9 +203,9 @@ export default function FacultyDashboard() {
             </div>
             
             {showCreateClass && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full">
-                  <h2 className="text-xl font-bold mb-4">Create New Class</h2>
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="card-elevated max-w-md w-full p-8">
+                  <h2 className="text-2xl font-bold mb-6 text-gradient">Create New Class</h2>
                   <form onSubmit={handleCreateClass} className="space-y-4">
                     <input
                       type="text"
@@ -208,7 +213,7 @@ export default function FacultyDashboard() {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-2 border rounded-lg bg-background"
+                      className="input-primary"
                     />
                     <input
                       type="text"
@@ -216,7 +221,7 @@ export default function FacultyDashboard() {
                       required
                       value={formData.code}
                       onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                      className="w-full px-4 py-2 border rounded-lg bg-background"
+                      className="input-primary"
                     />
                     <input
                       type="text"
@@ -224,16 +229,16 @@ export default function FacultyDashboard() {
                       required
                       value={formData.department}
                       onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                      className="w-full px-4 py-2 border rounded-lg bg-background"
+                      className="input-primary"
                     />
-                    <div className="flex space-x-2">
-                      <button type="submit" className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
-                        Create
+                    <div className="flex space-x-3 pt-2">
+                      <button type="submit" className="btn-primary flex-1">
+                        Create Class
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowCreateClass(false)}
-                        className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg"
+                        className="btn-secondary flex-1"
                       >
                         Cancel
                       </button>
@@ -244,53 +249,53 @@ export default function FacultyDashboard() {
             )}
 
             {showStartSession && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                  <h2 className="text-2xl font-bold mb-4">Start New Session</h2>
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="card-elevated max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8">
+                  <h2 className="text-3xl font-bold mb-2 text-gradient">Start New Session</h2>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Class: {selectedClass?.name} ({selectedClass?.code})
+                    📚 {selectedClass?.name} ({selectedClass?.code})
                   </p>
                   <form onSubmit={handleStartSession} className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium mb-2">Session Title</label>
+                      <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Session Title</label>
                       <input
                         type="text"
                         placeholder="e.g., Lecture 5 - Data Structures"
                         required
                         value={sessionData.title}
                         onChange={(e) => setSessionData({ ...sessionData, title: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500"
+                        className="input-primary"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Session Type</label>
+                      <label className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Session Type</label>
                       <div className="grid grid-cols-2 gap-4">
                         <button
                           type="button"
                           onClick={() => setSessionData({ ...sessionData, sessionType: 'offline' })}
-                          className={`p-4 border-2 rounded-lg transition-all ${
+                          className={`p-5 border-2 rounded-xl transition-all hover:scale-105 ${
                             sessionData.sessionType === 'offline'
-                              ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
-                              : 'border-gray-300 dark:border-gray-600'
+                              ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 shadow-lg'
+                              : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400'
                           }`}
                         >
-                          <div className="text-2xl mb-2">🏫</div>
-                          <div className="font-semibold">Offline Class</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">QR Code Attendance</div>
+                          <div className="text-3xl mb-2">🏫</div>
+                          <div className="font-bold text-lg">Offline Class</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">QR Code Attendance</div>
                         </button>
                         <button
                           type="button"
                           onClick={() => setSessionData({ ...sessionData, sessionType: 'online' })}
-                          className={`p-4 border-2 rounded-lg transition-all ${
+                          className={`p-5 border-2 rounded-xl transition-all hover:scale-105 ${
                             sessionData.sessionType === 'online'
-                              ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
-                              : 'border-gray-300 dark:border-gray-600'
+                              ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 shadow-lg'
+                              : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400'
                           }`}
                         >
-                          <div className="text-2xl mb-2">💻</div>
-                          <div className="font-semibold">Online Class</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Zoom/Meet/Teams</div>
+                          <div className="text-3xl mb-2">💻</div>
+                          <div className="font-bold text-lg">Online Class</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Zoom/Meet/Teams</div>
                         </button>
                       </div>
                     </div>
@@ -390,17 +395,17 @@ export default function FacultyDashboard() {
                       </>
                     )}
 
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-3 pt-4">
                       <button 
                         type="submit" 
-                        className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-medium"
+                        className="btn-primary flex-1"
                       >
-                        Start Session
+                        🚀 Start Session
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowStartSession(false)}
-                        className="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        className="btn-secondary flex-1"
                       >
                         Cancel
                       </button>
@@ -412,16 +417,16 @@ export default function FacultyDashboard() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {classes.map((cls) => (
-                <div key={cls._id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                  <h3 className="text-xl font-bold mb-2">{cls.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{cls.code}</p>
-                  <div className="flex items-center space-x-2 text-sm mb-4">
+                <div key={cls._id} className="card-elevated p-6 hover-lift">
+                  <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{cls.name}</h3>
+                  <p className="text-sm text-indigo-600 dark:text-indigo-400 font-semibold mb-4">{cls.code}</p>
+                  <div className="flex items-center space-x-2 text-sm mb-4 text-gray-600 dark:text-gray-400">
                     <Users size={16} />
-                    <span>{cls.students?.length || 0} students</span>
+                    <span>{cls.students?.length || 0} students enrolled</span>
                   </div>
                   <button
                     onClick={() => openStartSessionModal(cls)}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+                    className="btn-primary w-full flex items-center justify-center space-x-2"
                   >
                     <Calendar size={18} />
                     <span>Start Session</span>
@@ -431,32 +436,32 @@ export default function FacultyDashboard() {
             </div>
             
             <div className="mt-8">
-              <h2 className="text-2xl font-bold mb-4">Recent Sessions</h2>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <h2 className="text-2xl font-bold mb-4 text-gradient">Recent Sessions</h2>
+              <div className="card-elevated overflow-hidden">
                 <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
+                  <thead className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase">Class</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase">Attendance</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Class</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Date</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Attendance</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {sessions.slice(0, 5).map((session) => (
-                      <tr key={session._id}>
-                        <td className="px-6 py-4">{session.class?.name}</td>
-                        <td className="px-6 py-4">{new Date(session.date).toLocaleDateString()}</td>
+                      <tr key={session._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{session.class?.name}</td>
+                        <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{new Date(session.date).toLocaleDateString()}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            session.status === 'LIVE' ? 'bg-green-100 text-green-800' :
-                            session.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
+                          <span className={`badge ${
+                            session.status === 'LIVE' ? 'badge-success' :
+                            session.status === 'COMPLETED' ? 'badge-info' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                           }`}>
                             {session.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
                           {session.attendanceCount}/{session.totalStudents}
                         </td>
                       </tr>

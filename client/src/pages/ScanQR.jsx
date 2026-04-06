@@ -328,32 +328,43 @@ export default function ScanQR() {
         <Sidebar />
         <main className="flex-1 p-8">
           <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold mb-8">Scan QR Code</h1>
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Scan QR Code
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Mark your attendance by scanning the QR code</p>
+            </div>
             
             {/* Security Features Info */}
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="card-elevated p-6 mb-6">
               <div className="flex items-start gap-3">
-                <ShieldCheck className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" size={24} />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="text-white" size={24} />
+                </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-3">
                     🔒 Multi-Layer Security Active
                   </h3>
-                  <div className="space-y-2 text-sm text-blue-800 dark:text-blue-400">
-                    <div className="font-semibold">Faculty-Controlled Verification:</div>
-                    <ul className="space-y-1 ml-4">
-                      <li>✓ QR Code scanning (always required)</li>
-                      <li>✓ Face liveness detection (if enabled by faculty)</li>
-                      <li>✓ GPS location verification (if enabled by faculty)</li>
-                    </ul>
-                    <div className="font-semibold mt-3">Background Security Checks:</div>
-                    <ul className="space-y-1 ml-4">
-                      <li>• Device fingerprinting (tracks your device)</li>
-                      <li>• Proxy/VPN detection (prevents spoofing)</li>
-                      <li>• IP reputation analysis (datacenter detection)</li>
-                      <li>• Impossible travel detection (location consistency)</li>
-                    </ul>
+                  <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                    <div>
+                      <div className="font-semibold text-indigo-600 dark:text-indigo-400 mb-1">Faculty-Controlled Verification:</div>
+                      <ul className="space-y-1 ml-4">
+                        <li>✓ QR Code scanning (always required)</li>
+                        <li>✓ Face liveness detection (if enabled by faculty)</li>
+                        <li>✓ GPS location verification (if enabled by faculty)</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-purple-600 dark:text-purple-400 mb-1">Background Security Checks:</div>
+                      <ul className="space-y-1 ml-4">
+                        <li>• Device fingerprinting (tracks your device)</li>
+                        <li>• Proxy/VPN detection (prevents spoofing)</li>
+                        <li>• IP reputation analysis (datacenter detection)</li>
+                        <li>• Impossible travel detection (location consistency)</li>
+                      </ul>
+                    </div>
                   </div>
-                  <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded">
+                  <div className="mt-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-lg">
                     <p className="text-xs text-green-800 dark:text-green-400">
                       <strong>✓ Smart Flow:</strong> Complete required verifications (QR → Face → Location) in sequence. Background security checks run automatically without blocking your attendance.
                     </p>
@@ -364,35 +375,41 @@ export default function ScanQR() {
             
             {/* Device Fingerprint Info */}
             {deviceFingerprint && (
-              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="mb-6 p-5 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl shadow-soft">
                 <div className="flex items-start gap-3">
-                  <Smartphone className="text-green-600 dark:text-green-400 flex-shrink-0 mt-1" size={20} />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <Smartphone className="text-white" size={20} />
+                  </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-green-900 dark:text-green-300 mb-2 flex items-center gap-2">
+                    <h3 className="font-bold text-green-900 dark:text-green-300 mb-3 flex items-center gap-2">
                       Device Information Collected
                       <CheckCircle size={16} className="text-green-600 dark:text-green-400" />
                     </h3>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-green-800 dark:text-green-400">
-                      <div>
-                        <span className="font-medium">Browser:</span> {deviceFingerprint.userAgent.includes('Chrome') ? 'Chrome' : deviceFingerprint.userAgent.includes('Firefox') ? 'Firefox' : deviceFingerprint.userAgent.includes('Safari') ? 'Safari' : 'Other'}
+                    <div className="grid grid-cols-2 gap-3 text-xs text-green-800 dark:text-green-400">
+                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                        <span className="font-bold block mb-1">Browser:</span> 
+                        {deviceFingerprint.userAgent.includes('Chrome') ? 'Chrome' : deviceFingerprint.userAgent.includes('Firefox') ? 'Firefox' : deviceFingerprint.userAgent.includes('Safari') ? 'Safari' : 'Other'}
                       </div>
-                      <div>
-                        <span className="font-medium">Platform:</span> {deviceFingerprint.platform}
+                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                        <span className="font-bold block mb-1">Platform:</span> 
+                        {deviceFingerprint.platform}
                       </div>
-                      <div>
-                        <span className="font-medium">Screen:</span> {deviceFingerprint.screenResolution}
+                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                        <span className="font-bold block mb-1">Screen:</span> 
+                        {deviceFingerprint.screenResolution}
                       </div>
-                      <div>
-                        <span className="font-medium">Timezone:</span> {deviceFingerprint.timezone}
+                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                        <span className="font-bold block mb-1">Timezone:</span> 
+                        {deviceFingerprint.timezone}
                       </div>
-                      <div className="col-span-2">
-                        <span className="font-medium">Device ID:</span> 
-                        <code className="ml-1 text-[10px] bg-green-100 dark:bg-green-900/40 px-1 py-0.5 rounded">
+                      <div className="col-span-2 p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                        <span className="font-bold block mb-1">Device ID:</span> 
+                        <code className="text-[10px] bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded">
                           {deviceFingerprint.fingerprint.substring(0, 24)}...
                         </code>
                       </div>
                     </div>
-                    <p className="text-xs text-green-700 dark:text-green-500 mt-2 italic">
+                    <p className="text-xs text-green-700 dark:text-green-500 mt-3 italic p-2 bg-white/30 dark:bg-gray-800/30 rounded">
                       This device signature helps track attendance patterns and detect suspicious activity. Note: This is not biometric data - it's technical device information only.
                     </p>
                   </div>
@@ -450,18 +467,22 @@ export default function ScanQR() {
               </div>
             )}
             
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+            <div className="card-elevated p-6">
               {/* Face Verification Panel (shown when required) */}
               {showFaceVerification && (
                 <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ShieldCheck size={20} className="text-purple-500" />
-                    <h2 className="font-semibold text-lg">Step 2: Face Liveness Detection</h2>
-                    <span className="text-xs text-purple-600 dark:text-purple-400">(Required by faculty)</span>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                      <ShieldCheck size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-lg text-gray-900 dark:text-white">Step 2: Face Liveness Detection</h2>
+                      <span className="text-xs badge badge-warning">Required by faculty</span>
+                    </div>
                   </div>
-                  <div className="mb-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
                     <p className="text-sm text-purple-800 dark:text-purple-400">
-                      Please look at the camera and move your head slightly to confirm you're a real person.
+                      👤 Please look at the camera and move your head slightly to confirm you're a real person.
                     </p>
                   </div>
                   <FaceVerification
@@ -522,7 +543,7 @@ export default function ScanQR() {
                 {!scanning && !showFaceVerification ? (
                   <button
                     onClick={startCamera}
-                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+                    className="btn-primary flex-1 flex items-center justify-center space-x-2"
                   >
                     <Camera size={20} />
                     <span>Start Camera</span>
@@ -530,17 +551,17 @@ export default function ScanQR() {
                 ) : scanning && !showFaceVerification ? (
                   <button
                     onClick={stopCamera}
-                    className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:opacity-90"
+                    className="btn-danger flex-1"
                   >
                     Stop Camera
                   </button>
                 ) : null}
               </div>
               
-              <p className="text-sm text-muted-foreground mt-4 text-center">
-                {!scanning && !showFaceVerification && 'Point your camera at the QR code displayed by your instructor'}
-                {scanning && !showFaceVerification && 'Hold steady - QR code will be detected automatically'}
-                {showFaceVerification && 'Complete face liveness check to proceed'}
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center font-medium">
+                {!scanning && !showFaceVerification && '📱 Point your camera at the QR code displayed by your instructor'}
+                {scanning && !showFaceVerification && '⏳ Hold steady - QR code will be detected automatically'}
+                {showFaceVerification && '👤 Complete face liveness check to proceed'}
               </p>
             </div>
           </div>

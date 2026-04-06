@@ -6,7 +6,7 @@ import Sidebar from '../components/Sidebar';
 import QRDisplay from '../components/QRDisplay';
 import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
-import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle, QrCode, Zap, Lock } from 'lucide-react';
 
 export default function StartSession() {
   const { id } = useParams();
@@ -16,10 +16,13 @@ export default function StartSession() {
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [qrEnabled, setQrEnabled] = useState(false);
   const [verificationSettings, setVerificationSettings] = useState({
     qrCode: true,
     faceVerification: false,
     locationVerification: false,
+    facialRecognition: false, // Future
+    fingerprintVerification: false, // Future
   });
   
   useEffect(() => {
@@ -82,6 +85,7 @@ export default function StartSession() {
     try {
       const { data } = await axiosInstance.get(`/sessions/${id}`);
       setSession(data.data.session);
+      setQrEnabled(data.data.session.qrEnabled || false);
       
       // Set verification settings from session
       if (data.data.session.verificationRequirements) {
@@ -93,6 +97,7 @@ export default function StartSession() {
           await axiosInstance.post(`/sessions/${id}/start`);
           const updated = await axiosInstance.get(`/sessions/${id}`);
           setSession(updated.data.data.session);
+          setQrEnabled(updated.data.data.session.qrEnabled || false);
           if (updated.data.data.session.verificationRequirements) {
             setVerificationSettings(updated.data.data.session.verificationRequirements);
           }
@@ -113,6 +118,24 @@ export default function StartSession() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleQR = async () => {
+    try {
+      const newQrState = !qrEnabled;
+      await axiosInstance.patch(`/sessions/${id}/toggle-qr`, {
+        qrEnabled: newQrState
+      });
+      setQrEnabled(newQrState);
+      if (newQrState) {
+        // Generate new QR token
+        const { data } = await axiosInstance.get(`/sessions/${id}/qr`);
+        setQrToken(data.data.qrToken);
+      }
+    } catch (error) {
+      console.error('Error toggling QR:', error);
+      alert('Failed to toggle QR code');
     }
   };
 
@@ -197,30 +220,50 @@ export default function StartSession() {
               </div>
             </div>
             
-            {/* Verification Settings */}
+            {/* QR Code Control & Verification Settings */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-8">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <Settings className="text-indigo-500" size={24} />
-                  <h3 className="text-lg font-semibold">Verification Requirements</h3>
+                  <QrCode className="text-indigo-500" size={24} />
+                  <h3 className="text-lg font-semibold">QR Code & Verification</h3>
                 </div>
                 <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors"
+                  onClick={toggleQR}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                    qrEnabled
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                  }`}
                 >
-                  {showSettings ? 'Hide' : 'Configure'}
+                  {qrEnabled ? '✓ QR Enabled' : 'Enable QR Code'}
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <Settings className="text-indigo-500" size={20} />
+                  <h4 className="font-semibold">Verification Requirements</h4>
+                </div>
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors text-sm"
+                >
+                  {showSettings ? 'Hide Settings' : 'Configure'}
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Active Verifications */}
                 <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   {verificationSettings.qrCode ? (
                     <CheckCircle className="text-green-500" size={20} />
                   ) : (
                     <XCircle className="text-gray-400" size={20} />
                   )}
-                  <span className="font-medium">QR Code</span>
-                  <span className="text-xs text-gray-500">(Always Required)</span>
+                  <div className="flex-1">
+                    <span className="font-medium">QR Code</span>
+                    <p className="text-xs text-gray-500">(Always Required)</p>
+                  </div>
                 </div>
                 
                 <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -229,10 +272,12 @@ export default function StartSession() {
                   ) : (
                     <XCircle className="text-gray-400" size={20} />
                   )}
-                  <span className="font-medium">Face Verification</span>
-                  <span className={`text-xs ${verificationSettings.faceVerification ? 'text-green-600' : 'text-gray-500'}`}>
-                    {verificationSettings.faceVerification ? 'Required' : 'Optional'}
-                  </span>
+                  <div className="flex-1">
+                    <span className="font-medium">Face Liveness</span>
+                    <p className="text-xs text-gray-500">
+                      {verificationSettings.faceVerification ? 'Required' : 'Optional'}
+                    </p>
+                  </div>
                 </div>
                 
                 <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -241,16 +286,50 @@ export default function StartSession() {
                   ) : (
                     <XCircle className="text-gray-400" size={20} />
                   )}
-                  <span className="font-medium">Location</span>
-                  <span className={`text-xs ${verificationSettings.locationVerification ? 'text-green-600' : 'text-gray-500'}`}>
-                    {verificationSettings.locationVerification ? 'Required' : 'Optional'}
-                  </span>
+                  <div className="flex-1">
+                    <span className="font-medium">GPS Location</span>
+                    <p className="text-xs text-gray-500">
+                      {verificationSettings.locationVerification ? 'Required' : 'Optional'}
+                    </p>
+                  </div>
                 </div>
+                
+                {/* Future Features */}
+                <div className="flex items-center space-x-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg opacity-60">
+                  <Lock className="text-amber-600" size={20} />
+                  <div className="flex-1">
+                    <span className="font-medium">Face Recognition</span>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">Coming Soon</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg opacity-60">
+                  <Lock className="text-amber-600" size={20} />
+                  <div className="flex-1">
+                    <span className="font-medium">Fingerprint</span>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">Coming Soon</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <Zap className="text-blue-600" size={20} />
+                  <div className="flex-1">
+                    <span className="font-medium text-sm">Background Checks</span>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Always Active</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Future Features Notice */}
+              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <p className="text-xs text-amber-800 dark:text-amber-400">
+                  <strong>📌 Note:</strong> Face Recognition and Fingerprint verification require biometric enrollment data in the database. These features will be available once student biometric data is collected and stored securely.
+                </p>
               </div>
               
               {showSettings && (
                 <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                  <h4 className="font-semibold mb-4">Configure Verification Methods</h4>
+                  <h4 className="font-semibold mb-4">Configure Active Verification Methods</h4>
                   <div className="space-y-3">
                     <label className="flex items-center space-x-3 cursor-pointer">
                       <input
@@ -262,7 +341,7 @@ export default function StartSession() {
                         }}
                         className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
                       />
-                      <span className="font-medium">Require Face Liveness Detection</span>
+                      <span className="font-medium">Require Face Liveness Detection (Real-time movement check)</span>
                     </label>
                     
                     <label className="flex items-center space-x-3 cursor-pointer">
@@ -275,11 +354,11 @@ export default function StartSession() {
                         }}
                         className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
                       />
-                      <span className="font-medium">Require Location Verification (GPS)</span>
+                      <span className="font-medium">Require GPS Location Verification (Geofencing)</span>
                     </label>
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-4">
-                    Students will need to complete all enabled verification methods to mark attendance.
+                    Students will need to complete all enabled verification methods. Background security checks (IP, proxy, device fingerprint) run automatically.
                   </p>
                 </div>
               )}
@@ -287,11 +366,29 @@ export default function StartSession() {
             
             <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow">
               <h2 className="text-2xl font-bold mb-6 text-center">Attendance QR Code</h2>
-              <div className="flex justify-center">
-                <QRDisplay token={qrToken} rotationInterval={20000} />
-              </div>
+              {qrEnabled ? (
+                <div className="flex justify-center">
+                  <QRDisplay token={qrToken} rotationInterval={20000} />
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <QrCode size={64} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    QR Code is currently disabled
+                  </p>
+                  <button
+                    onClick={toggleQR}
+                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Enable QR Code
+                  </button>
+                </div>
+              )}
               <p className="text-center text-sm text-muted-foreground mt-6">
-                Students should scan this QR code to mark their attendance
+                {qrEnabled 
+                  ? 'Students should scan this QR code to mark their attendance'
+                  : 'Enable QR code to allow students to mark attendance'
+                }
               </p>
             </div>
           </div>

@@ -18,6 +18,11 @@ const sessionSchema = new mongoose.Schema(
       required: [true, 'Session title is required'],
       trim: true,
     },
+    sessionType: {
+      type: String,
+      enum: ['OFFLINE', 'ONLINE'],
+      default: 'OFFLINE',
+    },
     date: {
       type: Date,
       required: [true, 'Session date is required'],
@@ -39,19 +44,32 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    qrEnabled: {
+      type: Boolean,
+      default: false, // Faculty can enable/disable QR anytime
+    },
     // Verification Requirements (Faculty Control)
     verificationRequirements: {
       qrCode: {
         type: Boolean,
-        default: true, // QR code always required
+        default: true, // QR code always required for offline
       },
       faceVerification: {
         type: Boolean,
-        default: false, // Optional: Faculty can enable
+        default: false, // Optional: Faculty can enable (liveness only)
       },
       locationVerification: {
         type: Boolean,
         default: false, // Optional: Faculty can enable
+      },
+      // Future features (not yet implemented)
+      facialRecognition: {
+        type: Boolean,
+        default: false, // Coming soon - requires biometric enrollment
+      },
+      fingerprintVerification: {
+        type: Boolean,
+        default: false, // Coming soon - requires biometric enrollment
       },
     },
     location: {

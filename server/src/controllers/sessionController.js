@@ -245,6 +245,38 @@ export const getSessionById = async (req, res) => {
 };
 
 /**
+ * Toggle QR code generation for session
+ */
+export const toggleQR = async (req, res) => {
+  try {
+    const { qrEnabled } = req.body;
+    
+    const session = await Session.findById(req.params.id);
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+    
+    session.qrEnabled = qrEnabled;
+    await session.save();
+    
+    res.json({
+      success: true,
+      message: `QR code ${qrEnabled ? 'enabled' : 'disabled'} successfully`,
+      data: { session },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
  * Update verification settings for a session
  */
 export const updateVerificationSettings = async (req, res) => {

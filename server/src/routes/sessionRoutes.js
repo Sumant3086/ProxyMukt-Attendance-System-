@@ -7,6 +7,7 @@ import {
   getSessions,
   getSessionById,
   getSessionAttendance,
+  updateVerificationSettings,
 } from '../controllers/sessionController.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
@@ -17,6 +18,7 @@ router.use(authenticate);
 router.post('/', authorize(['FACULTY', 'ADMIN']), createSession);
 router.post('/:id/start', authorize(['FACULTY', 'ADMIN']), startSession);
 router.post('/:id/end', authorize(['FACULTY', 'ADMIN']), endSession);
+router.patch('/:id/verification-settings', authorize(['FACULTY', 'ADMIN']), updateVerificationSettings);
 router.get('/:id/qr', getQRToken);
 router.get('/', getSessions);
 router.get('/:id', getSessionById);

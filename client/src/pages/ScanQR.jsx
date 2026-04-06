@@ -202,24 +202,25 @@ export default function ScanQR() {
         deviceInfo,
       });
       
-      setMessage(data.message);
+      // Show detailed success message
+      const successMsg = `✓ ${data.message}\n\nSession: ${data.data.sessionTitle}\nClass: ${data.data.className}`;
+      setMessage(successMsg);
       setMessageType('success');
       
       // Show location verification details if available
-      if (data.data?.locationVerification) {
-        const verification = data.data.locationVerification;
-        if (verification.distance !== null) {
+      if (data.data?.locationVerification && data.data.locationVerification.distance !== null) {
+        setTimeout(() => {
           setMessage(
-            `${data.message} (Distance: ${verification.distance}m from session location)`
+            `${successMsg}\n\nLocation: ${data.data.locationVerification.distance}m from session`
           );
-        }
+        }, 1000);
       }
       
       stopCamera();
       
       setTimeout(() => {
         navigate('/student', { state: { refresh: true } });
-      }, 2000);
+      }, 3000);
     } catch (error) {
       const errorData = error.response?.data;
       

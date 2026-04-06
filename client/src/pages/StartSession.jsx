@@ -6,7 +6,7 @@ import Sidebar from '../components/Sidebar';
 import QRDisplay from '../components/QRDisplay';
 import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
-import { Users, Clock, StopCircle } from 'lucide-react';
+import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle } from 'lucide-react';
 
 export default function StartSession() {
   const { id } = useParams();
@@ -15,6 +15,12 @@ export default function StartSession() {
   const [qrToken, setQrToken] = useState('');
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [verificationSettings, setVerificationSettings] = useState({
+    qrCode: true,
+    faceVerification: false,
+    locationVerification: false,
+  });
   
   useEffect(() => {
     fetchSession();
@@ -77,11 +83,19 @@ export default function StartSession() {
       const { data } = await axiosInstance.get(`/sessions/${id}`);
       setSession(data.data.session);
       
+      // Set verification settings from session
+      if (data.data.session.verificationRequirements) {
+        setVerificationSettings(data.data.session.verificationRequirements);
+      }
+      
       if (data.data.session.status !== 'LIVE') {
         try {
           await axiosInstance.post(`/sessions/${id}/start`);
           const updated = await axiosInstance.get(`/sessions/${id}`);
           setSession(updated.data.data.session);
+          if (updated.data.data.session.verificationRequirements) {
+            setVerificationSettings(updated.data.data.session.verificationRequirements);
+          }
         } catch (startError) {
           // If session is already live, just continue
           if (startError.response?.status === 400) {
@@ -99,6 +113,19 @@ export default function StartSession() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateVerificationSettings = async (newSettings) => {
+    try {
+      await axiosInstance.patch(`/sessions/${id}/verification-settings`, {
+        verificationRequirements: newSettings
+      });
+      setVerificationSettings(newSettings);
+      alert('Verification settings updated successfully!');
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      alert('Failed to update settings');
     }
   };
 
@@ -168,6 +195,94 @@ export default function StartSession() {
                   LIVE
                 </span>
               </div>
+            </div>
+            
+            {/* Verification Settings */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <Settings className="text-indigo-500" size={24} />
+                  <h3 className="text-lg font-semibold">Verification Requirements</h3>
+                </div>
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors"
+                >
+                  {showSettings ? 'Hide' : 'Configure'}
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  {verificationSettings.qrCode ? (
+                    <CheckCircle className="text-green-500" size={20} />
+                  ) : (
+                    <XCircle className="text-gray-400" size={20} />
+                  )}
+                  <span className="font-medium">QR Code</span>
+                  <span className="text-xs text-gray-500">(Always Required)</span>
+                </div>
+                
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  {verificationSettings.faceVerification ? (
+                    <CheckCircle className="text-green-500" size={20} />
+                  ) : (
+                    <XCircle className="text-gray-400" size={20} />
+                  )}
+                  <span className="font-medium">Face Verification</span>
+                  <span className={`text-xs ${verificationSettings.faceVerification ? 'text-green-600' : 'text-gray-500'}`}>
+                    {verificationSettings.faceVerification ? 'Required' : 'Optional'}
+                  </span>
+                </div>
+                
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  {verificationSettings.locationVerification ? (
+                    <CheckCircle className="text-green-500" size={20} />
+                  ) : (
+                    <XCircle className="text-gray-400" size={20} />
+                  )}
+                  <span className="font-medium">Location</span>
+                  <span className={`text-xs ${verificationSettings.locationVerification ? 'text-green-600' : 'text-gray-500'}`}>
+                    {verificationSettings.locationVerification ? 'Required' : 'Optional'}
+                  </span>
+                </div>
+              </div>
+              
+              {showSettings && (
+                <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                  <h4 className="font-semibold mb-4">Configure Verification Methods</h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={verificationSettings.faceVerification}
+                        onChange={(e) => {
+                          const newSettings = { ...verificationSettings, faceVerification: e.target.checked };
+                          updateVerificationSettings(newSettings);
+                        }}
+                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                      />
+                      <span className="font-medium">Require Face Liveness Detection</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={verificationSettings.locationVerification}
+                        onChange={(e) => {
+                          const newSettings = { ...verificationSettings, locationVerification: e.target.checked };
+                          updateVerificationSettings(newSettings);
+                        }}
+                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                      />
+                      <span className="font-medium">Require Location Verification (GPS)</span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-4">
+                    Students will need to complete all enabled verification methods to mark attendance.
+                  </p>
+                </div>
+              )}
             </div>
             
             <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow">

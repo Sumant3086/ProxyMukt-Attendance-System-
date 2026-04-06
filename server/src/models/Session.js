@@ -39,6 +39,21 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    // Verification Requirements (Faculty Control)
+    verificationRequirements: {
+      qrCode: {
+        type: Boolean,
+        default: true, // QR code always required
+      },
+      faceVerification: {
+        type: Boolean,
+        default: false, // Optional: Faculty can enable
+      },
+      locationVerification: {
+        type: Boolean,
+        default: false, // Optional: Faculty can enable
+      },
+    },
     location: {
       room: String,
       building: String,

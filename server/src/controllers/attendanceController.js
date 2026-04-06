@@ -173,6 +173,9 @@ export const markAttendance = async (req, res) => {
     let locationVerification = { verified: true, reason: 'Location not required' };
     let spoofingDetection = { isSuspicious: false };
     
+    // Check if location verification is required
+    const requiresLocation = session.verificationRequirements?.locationVerification || false;
+    
     if (location && location.latitude && location.longitude) {
       // Validate coordinates
       if (!validateCoordinates(location.latitude, location.longitude)) {
@@ -197,7 +200,7 @@ export const markAttendance = async (req, res) => {
       if (session.location && session.location.latitude && session.location.longitude) {
         locationVerification = verifyGeofence(session.location, location);
         
-        if (!locationVerification.verified) {
+        if (!locationVerification.verified && requiresLocation) {
           return res.status(403).json({
             success: false,
             message: 'Location verification failed',
@@ -209,7 +212,7 @@ export const markAttendance = async (req, res) => {
           });
         }
       }
-    } else if (session.location && session.location.latitude && session.location.longitude) {
+    } else if (requiresLocation) {
       // Location is required but not provided
       return res.status(400).json({
         success: false,
@@ -440,14 +443,22 @@ export const markAttendance = async (req, res) => {
     
     res.status(201).json({
       success: true,
-      message: 'Attendance marked successfully',
+      message: '✓ Attendance marked successfully! Present for this session.',
       data: { 
         attendance,
         locationVerification: {
           verified: locationVerification.verified,
           distance: locationVerification.distance,
           message: locationVerification.reason,
-        }
+        },
+        verificationStatus: {
+          qrCode: true,
+          faceVerification: session.verificationRequirements?.faceVerification ? 'Required' : 'Optional',
+          locationVerification: session.verificationRequirements?.locationVerification ? 'Verified' : 'Optional',
+        },
+        studentName: req.user.name,
+        sessionTitle: session.title,
+        className: session.class.name,
       },
     });
   } catch (error) {

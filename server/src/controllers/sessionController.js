@@ -245,6 +245,44 @@ export const getSessionById = async (req, res) => {
 };
 
 /**
+ * Update verification settings for a session
+ */
+export const updateVerificationSettings = async (req, res) => {
+  try {
+    const { verificationRequirements } = req.body;
+    
+    const session = await Session.findById(req.params.id);
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+    
+    // Update verification requirements
+    session.verificationRequirements = {
+      qrCode: true, // Always required
+      faceVerification: verificationRequirements.faceVerification || false,
+      locationVerification: verificationRequirements.locationVerification || false,
+    };
+    
+    await session.save();
+    
+    res.json({
+      success: true,
+      message: 'Verification settings updated successfully',
+      data: { session },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
  * Get session attendance summary
  */
 export const getSessionAttendance = async (req, res) => {

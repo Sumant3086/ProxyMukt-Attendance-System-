@@ -6,6 +6,7 @@ import axiosInstance from '../utils/axiosInstance';
 import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { getDeviceInfo } from '../utils/deviceFingerprint';
 import FaceVerification from '../components/FaceVerification';
+import jsQR from 'jsqr';
 
 export default function ScanQR() {
   const navigate = useNavigate();
@@ -21,20 +22,24 @@ export default function ScanQR() {
   const [faceVerified, setFaceVerified] = useState(false);
   const [showFaceVerification, setShowFaceVerification] = useState(false);
   const [pendingQrToken, setPendingQrToken] = useState(null);
+  const scanIntervalRef = useRef(null);
   
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+        video: { facingMode: 'environment', width: 640, height: 480 },
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         setStream(mediaStream);
         setScanning(true);
+        setMessage('Scanning for QR code...');
+        setMessageType('info');
+        startQRScanning();
       }
     } catch (error) {
-      setMessage('Camera access denied');
+      setMessage('Camera access denied. Please enable camera permissions.');
       setMessageType('error');
     }
   };
@@ -45,34 +50,60 @@ export default function ScanQR() {
       setStream(null);
       setScanning(false);
     }
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
   };
   
-  const captureAndScan = async () => {
+  const startQRScanning = () => {
+    scanIntervalRef.current = setInterval(() => {
+      scanQRCode();
+    }, 500); // Scan every 500ms
+  };
+  
+  const scanQRCode = () => {
     if (!videoRef.current || !canvasRef.current) return;
     
-    const canvas = canvasRef.current;
     const video = videoRef.current;
+    const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0);
-    
-    // In production, use a QR scanner library like jsQR
-    const qrToken = prompt('Enter QR code manually (for demo):');
-    
-    if (qrToken) {
-      // Trigger face verification before marking attendance
-      setPendingQrToken(qrToken);
-      setShowFaceVerification(true);
-      stopCamera();
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
+      });
+      
+      if (code && code.data) {
+        // QR code detected!
+        stopCamera();
+        setMessage('QR Code detected! Starting face verification...');
+        setMessageType('success');
+        
+        // Trigger face verification
+        setPendingQrToken(code.data);
+        setShowFaceVerification(true);
+      }
     }
   };
 
   const handleFaceVerified = async (result) => {
     setFaceVerified(true);
     setShowFaceVerification(false);
-    setMessage(result?.bypassed ? 'Proceeding without face verification...' : 'Face verified! Marking attendance...');
+    
+    if (result?.bypassed) {
+      setMessage('⚠️ Face verification skipped. Marking attendance...');
+    } else if (result?.note) {
+      setMessage('✓ Live face detected! Marking attendance... (Note: Identity matching not yet implemented)');
+    } else {
+      setMessage('✓ Face detected! Marking attendance...');
+    }
+    
     setMessageType('info');
     if (pendingQrToken) {
       await markAttendance(pendingQrToken);
@@ -81,7 +112,7 @@ export default function ScanQR() {
 
   const handleFaceFailed = async () => {
     setShowFaceVerification(false);
-    setMessage('Face verification failed. Attendance not marked.');
+    setMessage('⚠️ Face verification incomplete. You may try again or contact your instructor.');
     setMessageType('error');
     setPendingQrToken(null);
   };
@@ -153,10 +184,13 @@ export default function ScanQR() {
         console.warn('Location not available:', error);
       }
       
-      setMessage('Marking attendance...');
+      setMessage('Collecting device information...');
       
       // Get device information
       const deviceInfo = getDeviceInfo();
+      console.log('📱 Device Fingerprint:', deviceInfo); // Log for visibility
+      
+      setMessage('Marking attendance...');
       
       const { data } = await axiosInstance.post('/attendance/mark', {
         qrToken,
@@ -216,6 +250,27 @@ export default function ScanQR() {
         <main className="flex-1 p-8">
           <div className="max-w-2xl mx-auto">
             <h1 className="text-3xl font-bold mb-8">Scan QR Code</h1>
+            
+            {/* Security Features Info */}
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" size={24} />
+                <div>
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                    🔒 Multi-Layer Security Active
+                  </h3>
+                  <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
+                    <li>✓ Device fingerprinting enabled (tracking your unique device)</li>
+                    <li>✓ Live face detection (verifies a real person is present)</li>
+                    <li>✓ Location verification active (GPS-based geofencing)</li>
+                    <li>✓ Proxy/VPN detection running (prevents spoofing)</li>
+                  </ul>
+                  <p className="text-xs text-blue-700 dark:text-blue-500 mt-3 italic">
+                    Note: Face identity matching will be added in future updates. Currently detecting live faces only.
+                  </p>
+                </div>
+              </div>
+            </div>
             
             {/* Location Status */}
             <div className={`mb-4 p-4 rounded-lg flex items-center space-x-2 ${
@@ -297,17 +352,40 @@ export default function ScanQR() {
                   playsInline
                   className="w-full h-full object-cover"
                 />
-                <canvas ref={canvasRef} className="hidden" />
+                <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-0" />
                 
-                {!scanning && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <p className="text-white text-lg">Camera not started</p>
+                {!scanning && !showFaceVerification && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                    <div className="text-center">
+                      <Camera size={48} className="text-white mx-auto mb-4" />
+                      <p className="text-white text-lg">Camera not started</p>
+                      <p className="text-gray-300 text-sm mt-2">Click "Start Camera" to scan QR code</p>
+                    </div>
+                  </div>
+                )}
+                
+                {scanning && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* QR Scanner overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-64 h-64 border-4 border-green-500 rounded-lg relative">
+                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-500"></div>
+                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-500"></div>
+                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-500"></div>
+                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-500"></div>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-4 left-0 right-0 text-center">
+                      <p className="text-white text-sm bg-black/60 inline-block px-4 py-2 rounded-full">
+                        📷 Scanning for QR code...
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
               
               <div className="flex space-x-4">
-                {!scanning ? (
+                {!scanning && !showFaceVerification ? (
                   <button
                     onClick={startCamera}
                     className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
@@ -315,26 +393,20 @@ export default function ScanQR() {
                     <Camera size={20} />
                     <span>Start Camera</span>
                   </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={captureAndScan}
-                      className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:opacity-90"
-                    >
-                      Capture & Scan
-                    </button>
-                    <button
-                      onClick={stopCamera}
-                      className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:opacity-90"
-                    >
-                      Stop Camera
-                    </button>
-                  </>
-                )}
+                ) : scanning ? (
+                  <button
+                    onClick={stopCamera}
+                    className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:opacity-90"
+                  >
+                    Stop Camera
+                  </button>
+                ) : null}
               </div>
               
               <p className="text-sm text-muted-foreground mt-4 text-center">
-                Point your camera at the QR code displayed by your instructor
+                {!scanning && !showFaceVerification && 'Point your camera at the QR code displayed by your instructor'}
+                {scanning && 'Hold steady - QR code will be detected automatically'}
+                {showFaceVerification && 'Complete face verification to mark attendance'}
               </p>
             </div>
           </div>

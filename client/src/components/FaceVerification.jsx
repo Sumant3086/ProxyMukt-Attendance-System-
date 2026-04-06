@@ -34,13 +34,13 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
       ]);
       setModelsLoaded(true);
       setStatus('ready');
-      setMessage('Models loaded. Click to start face verification.');
+      setMessage('Ready! Note: This detects live faces only. Identity matching coming soon.');
     } catch (err) {
       console.error('Model load error:', err);
       setStatus('failed');
-      setMessage('Failed to load face detection models. Proceeding without face verification.');
+      setMessage('Face detection unavailable. Proceeding with attendance...');
       // Auto-bypass if models fail to load
-      setTimeout(() => onVerified && onVerified({ bypassed: true }), 1500);
+      setTimeout(() => onVerified && onVerified({ bypassed: true, reason: 'Models failed to load' }), 1500);
     }
   };
 
@@ -90,16 +90,19 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
 
           setFaceBox(detection.detection.box);
           setStatus('verified');
-          setMessage('Face verified successfully!');
+          setMessage('✓ Live face detected! Identity verification will be added in future updates.');
           clearInterval(intervalRef.current);
           cleanup();
-          setTimeout(() => onVerified && onVerified({ score: detection.detection.score }), 800);
+          setTimeout(() => onVerified && onVerified({ 
+            score: detection.detection.score,
+            note: 'Face detection only - identity matching not yet implemented' 
+          }), 1500);
         } else {
           setFaceBox(null);
           if (attempts >= maxAttempts) {
             clearInterval(intervalRef.current);
             setStatus('failed');
-            setMessage('No face detected. Proceeding anyway...');
+            setMessage('⚠️ No face detected in frame. Attendance will proceed without face verification.');
             cleanup();
             setTimeout(() => onFailed && onFailed(), 1000);
           }
@@ -131,12 +134,20 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
     <div className="bg-gray-900 rounded-xl p-4 border border-gray-700">
       <div className="flex items-center gap-2 mb-3">
         <Camera size={18} className="text-purple-400" />
-        <span className="text-white font-semibold text-sm">Face Verification</span>
+        <span className="text-white font-semibold text-sm">Live Face Detection</span>
         {status === 'verified' && <CheckCircle size={16} className="text-green-400 ml-auto" />}
         {status === 'failed' && <XCircle size={16} className="text-red-400 ml-auto" />}
         {(status === 'loading' || status === 'detecting') && (
           <Loader2 size={16} className="text-blue-400 ml-auto animate-spin" />
         )}
+      </div>
+      
+      {/* Info Banner */}
+      <div className="mb-3 p-2 bg-purple-900/30 border border-purple-700/50 rounded-lg">
+        <p className="text-xs text-purple-300 flex items-start gap-2">
+          <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+          <span>This detects if a live person is present. Identity matching will be added in future updates.</span>
+        </p>
       </div>
 
       {/* Video + Canvas overlay */}
@@ -179,7 +190,7 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
           onClick={startCamera}
           className="mt-3 w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
         >
-          Start Face Verification
+          Start Live Face Detection
         </button>
       )}
 

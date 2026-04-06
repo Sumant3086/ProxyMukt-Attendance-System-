@@ -58,7 +58,7 @@ export const createSession = async (req, res) => {
  */
 export const startSession = async (req, res) => {
   try {
-    const session = await Session.findById(req.params.id);
+    const session = await Session.findById(req.params.id).populate('class', 'students');
     
     if (!session) {
       return res.status(404).json({
@@ -72,6 +72,11 @@ export const startSession = async (req, res) => {
         success: false,
         message: 'Session is already live',
       });
+    }
+    
+    // Ensure totalStudents is set from class
+    if (session.totalStudents === 0 && session.class?.students) {
+      session.totalStudents = session.class.students.length;
     }
     
     session.status = 'LIVE';
@@ -217,6 +222,12 @@ export const getSessionById = async (req, res) => {
         success: false,
         message: 'Session not found',
       });
+    }
+    
+    // Ensure totalStudents is set from class if not already set
+    if (session.totalStudents === 0 && session.class?.students) {
+      session.totalStudents = session.class.students.length;
+      await session.save();
     }
     
     res.json({

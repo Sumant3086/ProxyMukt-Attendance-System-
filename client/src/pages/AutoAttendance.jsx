@@ -156,11 +156,12 @@ export default function AutoAttendance() {
         });
       }
 
-      // Stop tracking after successful mark
+      // Stop tracking and navigate back with refresh flag
       setTimeout(() => {
         stopTracking();
-        navigate('/student');
-      }, 3000);
+        // Navigate with state to trigger refresh
+        navigate('/student', { state: { refresh: true } });
+      }, 2000);
     } catch (error) {
       setStatus('error');
       setMessage(error.response?.data?.message || 'Failed to mark attendance');

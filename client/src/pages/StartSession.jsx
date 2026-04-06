@@ -19,7 +19,17 @@ export default function StartSession() {
   useEffect(() => {
     fetchSession();
     
-    const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000');
+    // Get auth data for WebSocket authentication
+    const authData = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+    const userId = authData.state?.user?._id;
+    const role = authData.state?.user?.role;
+    
+    const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', {
+      auth: {
+        userId,
+        role
+      }
+    });
     setSocket(newSocket);
     
     return () => {
@@ -37,6 +47,28 @@ export default function StartSession() {
       socket.on('qr-update', (data) => {
         setQrToken(data.qrToken);
       });
+      
+      // Listen for real-time attendance updates
+      socket.on('attendance-marked', (data) => {
+        console.log('Attendance marked:', data);
+        setSession(prev => ({
+          ...prev,
+          attendanceCount: data.attendanceCount || (prev.attendanceCount + 1)
+        }));
+      });
+      
+      // Listen for class attendance updates
+      socket.on('class-attendance-update', (data) => {
+        console.log('Class attendance update:', data);
+        // Refresh session data
+        fetchSession();
+      });
+      
+      return () => {
+        socket.off('qr-update');
+        socket.off('attendance-marked');
+        socket.off('class-attendance-update');
+      };
     }
   }, [socket, session, id]);
   

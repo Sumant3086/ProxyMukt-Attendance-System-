@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { io } from 'socket.io-client';
 import { useAuthStore } from '../store/authStore';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
@@ -16,18 +17,53 @@ import { ATTENDANCE_THRESHOLD_GOOD, ATTENDANCE_THRESHOLD_WARNING, RECENT_ATTENDA
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const location = useLocation();
+  const { isAuthenticated, user } = useAuthStore();
   const [classes, setClasses] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [socket, setSocket] = useState(null);
   
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
+      
+      // Setup WebSocket for real-time updates
+      const authData = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+      const userId = authData.state?.user?._id;
+      const role = authData.state?.user?.role;
+      
+      const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', {
+        auth: { userId, role }
+      });
+      
+      setSocket(newSocket);
+      
+      // Listen for attendance confirmation
+      newSocket.on('attendance-confirmed', (data) => {
+        console.log('✅ Attendance confirmed:', data);
+        // Refresh data
+        fetchData();
+      });
+      
+      return () => {
+        if (newSocket) {
+          newSocket.disconnect();
+        }
+      };
     } else {
       navigate('/login');
     }
   }, [isAuthenticated]);
+  
+  // Refresh when navigating back from auto-attendance
+  useEffect(() => {
+    if (location.state?.refresh) {
+      fetchData();
+      // Clear the state
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state]);
   
   const [stats, setStats] = useState({
     totalSessions: 0,

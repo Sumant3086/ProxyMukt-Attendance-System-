@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import axiosInstance from '../utils/axiosInstance';
@@ -10,6 +11,7 @@ import jsQR from 'jsqr';
 
 export default function ScanQR() {
   const navigate = useNavigate();
+  const [socket, setSocket] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [scanning, setScanning] = useState(false);
@@ -224,7 +226,7 @@ export default function ScanQR() {
       stopCamera();
       
       setTimeout(() => {
-        navigate('/student');
+        navigate('/student', { state: { refresh: true } });
       }, 2000);
     } catch (error) {
       const errorData = error.response?.data;
@@ -256,6 +258,34 @@ export default function ScanQR() {
     const deviceInfo = getDeviceInfo();
     setDeviceFingerprint(deviceInfo);
     console.log('📱 Device Fingerprint Collected:', deviceInfo);
+    
+    // Setup WebSocket for real-time updates
+    const authData = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+    const userId = authData.state?.user?._id;
+    const role = authData.state?.user?.role;
+    
+    if (userId && role) {
+      const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', {
+        auth: { userId, role }
+      });
+      
+      setSocket(newSocket);
+      
+      // Listen for attendance confirmation
+      newSocket.on('attendance-confirmed', (data) => {
+        console.log('✅ Attendance confirmed via WebSocket:', data);
+        setMessage('✓ Attendance confirmed! Redirecting...');
+        setMessageType('success');
+        setTimeout(() => navigate('/student', { state: { refresh: true } }), 1500);
+      });
+      
+      return () => {
+        if (newSocket) {
+          newSocket.disconnect();
+        }
+        stopCamera();
+      };
+    }
     
     return () => {
       stopCamera();

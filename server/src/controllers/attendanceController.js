@@ -425,6 +425,19 @@ export const markAttendance = async (req, res) => {
     session.attendanceCount += 1;
     await session.save();
     
+    // EMIT REAL-TIME WEBSOCKET UPDATE
+    emitAttendanceMarked(
+      session._id.toString(),
+      session.class._id.toString(),
+      req.user._id.toString(),
+      {
+        studentName: req.user.name,
+        riskScore: totalRiskScore,
+        attendanceCount: session.attendanceCount,
+        totalStudents: session.totalStudents
+      }
+    );
+    
     res.status(201).json({
       success: true,
       message: 'Attendance marked successfully',

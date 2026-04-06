@@ -39,6 +39,7 @@ import {
 import { circuitBreakerMiddleware, getCircuitBreakerHealth } from './utils/circuitBreaker.js';
 import { advancedRateLimit } from './utils/advancedRateLimiter.js';
 import { getConnectionStats } from './utils/ioManager.js';
+import { sanitizeInput } from './middleware/inputValidation.js';
 
 dotenv.config();
 
@@ -89,7 +90,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// 4. Input Sanitization (Prevent XSS, SQL Injection)
+// 4. Input Sanitization (Prevent XSS, SQL/NoSQL Injection)
+app.use(sanitizeInput);
 app.use(sanitizeMiddleware);
 app.use(suspiciousPatternMiddleware);
 

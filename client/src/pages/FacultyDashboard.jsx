@@ -27,6 +27,9 @@ export default function FacultyDashboard() {
     location: null,
     sessionType: 'offline', // 'offline' or 'online'
     onlinePlatform: 'ZOOM', // 'ZOOM', 'GOOGLE_MEET', 'TEAMS'
+    qrEnabled: true, // QR Code toggle
+    faceVerification: false, // Face liveness toggle
+    locationVerification: false, // Geofencing toggle
   });
   
   useEffect(() => {
@@ -92,13 +95,20 @@ export default function FacultyDashboard() {
   const handleStartSession = async (e) => {
     e.preventDefault();
     try {
-      // Create regular session first
+      // Create regular session first with verification settings
       const { data } = await axiosInstance.post('/sessions', {
         classId: selectedClass._id,
         title: sessionData.title,
         date: new Date(),
         startTime: new Date(),
         location: sessionData.sessionType === 'offline' ? sessionData.location : null,
+        sessionType: sessionData.sessionType.toUpperCase(),
+        qrEnabled: sessionData.qrEnabled,
+        verificationRequirements: {
+          qrCode: sessionData.qrEnabled,
+          faceVerification: sessionData.faceVerification,
+          locationVerification: sessionData.locationVerification,
+        },
       });
 
       const sessionId = data.data.session._id;
@@ -307,10 +317,77 @@ export default function FacultyDashboard() {
                     )}
 
                     {sessionData.sessionType === 'offline' && (
-                      <LocationPicker
-                        value={sessionData.location}
-                        onChange={(location) => setSessionData({ ...sessionData, location })}
-                      />
+                      <>
+                        <LocationPicker
+                          value={sessionData.location}
+                          onChange={(location) => setSessionData({ ...sessionData, location })}
+                        />
+                        
+                        {/* Verification Toggles */}
+                        <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <h4 className="font-semibold text-sm">Verification Methods</h4>
+                          
+                          {/* QR Code Toggle */}
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <div className="text-2xl">📱</div>
+                              <div>
+                                <div className="font-medium">Enable QR Code</div>
+                                <div className="text-xs text-gray-600 dark:text-gray-400">Students scan QR to mark attendance</div>
+                              </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={sessionData.qrEnabled}
+                                onChange={(e) => setSessionData({ ...sessionData, qrEnabled: e.target.checked })}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                            </label>
+                          </div>
+                          
+                          {/* Face Liveness Toggle */}
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <div className="text-2xl">👤</div>
+                              <div>
+                                <div className="font-medium">Enable Face Liveness</div>
+                                <div className="text-xs text-gray-600 dark:text-gray-400">Real-time movement check (not facial recognition)</div>
+                              </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={sessionData.faceVerification}
+                                onChange={(e) => setSessionData({ ...sessionData, faceVerification: e.target.checked })}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                            </label>
+                          </div>
+                          
+                          {/* Geofencing Toggle */}
+                          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <div className="text-2xl">📍</div>
+                              <div>
+                                <div className="font-medium">Enable Geofencing</div>
+                                <div className="text-xs text-gray-600 dark:text-gray-400">Require students to be at the session location</div>
+                              </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={sessionData.locationVerification}
+                                onChange={(e) => setSessionData({ ...sessionData, locationVerification: e.target.checked })}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                            </label>
+                          </div>
+                        </div>
+                      </>
                     )}
 
                     <div className="flex space-x-2">

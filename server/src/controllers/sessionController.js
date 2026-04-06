@@ -9,7 +9,7 @@ import { notifySessionStarted, notifySessionEnded } from '../utils/notificationS
  */
 export const createSession = async (req, res) => {
   try {
-    const { classId, title, date, startTime, location } = req.body;
+    const { classId, title, date, startTime, location, sessionType, qrEnabled, verificationRequirements } = req.body;
     
     // Verify class exists and user is faculty
     const classData = await Class.findById(classId);
@@ -35,6 +35,13 @@ export const createSession = async (req, res) => {
       date,
       startTime,
       location,
+      sessionType: sessionType || 'OFFLINE',
+      qrEnabled: qrEnabled !== undefined ? qrEnabled : true,
+      verificationRequirements: verificationRequirements || {
+        qrCode: true,
+        faceVerification: false,
+        locationVerification: false,
+      },
       totalStudents: classData.students.length,
     });
     

@@ -21,18 +21,28 @@ export function etagMiddleware(req, res, next) {
   const originalJson = res.json.bind(res);
 
   res.json = function(data) {
-    // Generate ETag
-    const etag = generateETag(data);
-    res.setHeader('ETag', `"${etag}"`);
-
-    // Check if client has cached version
-    const clientETag = req.headers['if-none-match'];
-    if (clientETag === `"${etag}"`) {
-      return res.status(304).end();
+    // Skip if headers already sent
+    if (res.headersSent) {
+      return originalJson(data);
     }
 
-    // Send response
-    return originalJson(data);
+    try {
+      // Generate ETag
+      const etag = generateETag(data);
+      res.setHeader('ETag', `"${etag}"`);
+
+      // Check if client has cached version
+      const clientETag = req.headers['if-none-match'];
+      if (clientETag === `"${etag}"`) {
+        return res.status(304).end();
+      }
+
+      // Send response
+      return originalJson(data);
+    } catch (error) {
+      console.error('ETag middleware error:', error);
+      return originalJson(data);
+    }
   };
 
   next();
@@ -45,44 +55,54 @@ export function compressionMiddleware(req, res, next) {
   const originalJson = res.json.bind(res);
 
   res.json = function(data) {
-    const acceptEncoding = req.headers['accept-encoding'] || '';
-    const jsonString = JSON.stringify(data);
-
-    // Only compress if response is large enough (> 1KB)
-    if (jsonString.length < 1024) {
+    // Skip if headers already sent
+    if (res.headersSent) {
       return originalJson(data);
     }
 
-    // Gzip compression
-    if (acceptEncoding.includes('gzip')) {
-      res.setHeader('Content-Encoding', 'gzip');
-      res.setHeader('Content-Type', 'application/json');
-      
-      zlib.gzip(jsonString, (err, compressed) => {
-        if (err) {
-          return originalJson(data);
-        }
-        res.send(compressed);
-      });
-      return;
-    }
+    try {
+      const acceptEncoding = req.headers['accept-encoding'] || '';
+      const jsonString = JSON.stringify(data);
 
-    // Deflate compression
-    if (acceptEncoding.includes('deflate')) {
-      res.setHeader('Content-Encoding', 'deflate');
-      res.setHeader('Content-Type', 'application/json');
-      
-      zlib.deflate(jsonString, (err, compressed) => {
-        if (err) {
-          return originalJson(data);
-        }
-        res.send(compressed);
-      });
-      return;
-    }
+      // Only compress if response is large enough (> 1KB)
+      if (jsonString.length < 1024) {
+        return originalJson(data);
+      }
 
-    // No compression supported
-    return originalJson(data);
+      // Gzip compression
+      if (acceptEncoding.includes('gzip')) {
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Content-Type', 'application/json');
+        
+        zlib.gzip(jsonString, (err, compressed) => {
+          if (err) {
+            return originalJson(data);
+          }
+          res.send(compressed);
+        });
+        return;
+      }
+
+      // Deflate compression
+      if (acceptEncoding.includes('deflate')) {
+        res.setHeader('Content-Encoding', 'deflate');
+        res.setHeader('Content-Type', 'application/json');
+        
+        zlib.deflate(jsonString, (err, compressed) => {
+          if (err) {
+            return originalJson(data);
+          }
+          res.send(compressed);
+        });
+        return;
+      }
+
+      // No compression supported
+      return originalJson(data);
+    } catch (error) {
+      console.error('Compression middleware error:', error);
+      return originalJson(data);
+    }
   };
 
   next();
@@ -127,15 +147,23 @@ export function cacheControl(maxAge = 0, options = {}) {
 export function responseTimeMiddleware(req, res, next) {
   const startTime = Date.now();
 
-  res.on('finish', () => {
+  // Use 'finish' event instead of setting header after response
+  const originalEnd = res.end;
+  res.end = function(...args) {
     const duration = Date.now() - startTime;
-    res.setHeader('X-Response-Time', `${duration}ms`);
+    
+    // Only set header if not already sent
+    if (!res.headersSent) {
+      res.setHeader('X-Response-Time', `${duration}ms`);
+    }
     
     // Log slow requests
     if (duration > 1000) {
       console.warn(`⚠️ Slow request: ${req.method} ${req.path} took ${duration}ms`);
     }
-  });
+    
+    originalEnd.apply(res, args);
+  };
 
   next();
 }

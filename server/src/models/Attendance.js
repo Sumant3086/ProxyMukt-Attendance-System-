@@ -73,8 +73,7 @@ attendanceSchema.index({ session: 1, student: 1 }, { unique: true });
 attendanceSchema.index({ class: 1, student: 1 });
 attendanceSchema.index({ student: 1, createdAt: -1 });
 
-// Performance indexes for queries
-attendanceSchema.index({ 'deviceInfo.ip': 1 });
+// Performance indexes for queries (removed duplicate 'deviceInfo.ip' index)
 attendanceSchema.index({ 'deviceInfo.riskScore': 1 });
 attendanceSchema.index({ 'location.verified': 1 });
 attendanceSchema.index({ createdAt: -1 });
@@ -85,7 +84,7 @@ attendanceSchema.index({ status: 1, createdAt: -1 });
 // FANG-LEVEL: Compound indexes for complex queries
 attendanceSchema.index({ class: 1, student: 1, createdAt: -1 }); // Class attendance history
 attendanceSchema.index({ session: 1, 'deviceInfo.riskScore': -1 }); // High-risk attendances per session
-attendanceSchema.index({ student: 1, 'deviceInfo.ip': 1, createdAt: -1 }); // IP tracking per student
+attendanceSchema.index({ student: 1, 'deviceInfo.ip': 1, createdAt: -1 }); // IP tracking per student (combined index)
 attendanceSchema.index({ 'location.verified': 1, 'deviceInfo.riskScore': -1 }); // Suspicious locations
 attendanceSchema.index({ class: 1, status: 1, createdAt: -1 }); // Class status reports
 attendanceSchema.index({ 'deviceInfo.deviceFingerprint': 1, student: 1 }); // Device tracking

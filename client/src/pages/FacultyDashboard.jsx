@@ -249,71 +249,77 @@ export default function FacultyDashboard() {
             )}
 
             {showStartSession && (
-              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="card-elevated max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8">
-                  <h2 className="text-3xl font-bold mb-2 text-gradient">Start New Session</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    📚 {selectedClass?.name} ({selectedClass?.code})
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8">
+                  <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
+                    Start New Session
+                  </h2>
+                  <p className="text-gray-400 mb-6 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    {selectedClass?.name} ({selectedClass?.code})
                   </p>
+                  
                   <form onSubmit={handleStartSession} className="space-y-6">
+                    {/* Session Title */}
                     <div>
-                      <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Session Title</label>
+                      <label className="block text-sm font-semibold mb-2 text-gray-300">Session Title</label>
                       <input
                         type="text"
-                        placeholder="e.g., Lecture 5 - Data Structures"
+                        placeholder="Data Structures and Algorithms - Lecture"
                         required
                         value={sessionData.title}
                         onChange={(e) => setSessionData({ ...sessionData, title: e.target.value })}
-                        className="input-primary"
+                        className="w-full px-4 py-3 bg-[#0f1420] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                       />
                     </div>
 
+                    {/* Session Type */}
                     <div>
-                      <label className="block text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Session Type</label>
+                      <label className="block text-sm font-semibold mb-3 text-gray-300">Session Type</label>
                       <div className="grid grid-cols-2 gap-4">
                         <button
                           type="button"
                           onClick={() => setSessionData({ ...sessionData, sessionType: 'offline' })}
-                          className={`p-5 border-2 rounded-xl transition-all hover:scale-105 ${
+                          className={`p-6 border-2 rounded-xl transition-all ${
                             sessionData.sessionType === 'offline'
-                              ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 shadow-lg'
-                              : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400'
+                              ? 'border-purple-500 bg-purple-600/20'
+                              : 'border-gray-700 bg-[#0f1420] hover:border-gray-600'
                           }`}
                         >
-                          <div className="text-3xl mb-2">🏫</div>
-                          <div className="font-bold text-lg">Offline Class</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">QR Code Attendance</div>
+                          <div className="text-4xl mb-3">🏫</div>
+                          <div className="font-bold text-lg text-white">Offline Class</div>
+                          <div className="text-xs text-gray-400 mt-1">QR Code Attendance</div>
                         </button>
                         <button
                           type="button"
                           onClick={() => setSessionData({ ...sessionData, sessionType: 'online' })}
-                          className={`p-5 border-2 rounded-xl transition-all hover:scale-105 ${
+                          className={`p-6 border-2 rounded-xl transition-all ${
                             sessionData.sessionType === 'online'
-                              ? 'border-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 shadow-lg'
-                              : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400'
+                              ? 'border-purple-500 bg-purple-600/20'
+                              : 'border-gray-700 bg-[#0f1420] hover:border-gray-600'
                           }`}
                         >
-                          <div className="text-3xl mb-2">💻</div>
-                          <div className="font-bold text-lg">Online Class</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Zoom/Meet/Teams</div>
+                          <div className="text-4xl mb-3">💻</div>
+                          <div className="font-bold text-lg text-white">Online Class</div>
+                          <div className="text-xs text-gray-400 mt-1">Zoom/Meet/Teams</div>
                         </button>
                       </div>
                     </div>
 
                     {sessionData.sessionType === 'online' && (
                       <div>
-                        <label className="block text-sm font-medium mb-2">Online Platform</label>
+                        <label className="block text-sm font-semibold mb-2 text-gray-300">Online Platform</label>
                         <select
                           value={sessionData.onlinePlatform}
                           onChange={(e) => setSessionData({ ...sessionData, onlinePlatform: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-4 py-3 bg-[#0f1420] border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         >
                           <option value="ZOOM">🎥 Zoom (Auto-create meeting)</option>
                           <option value="GOOGLE_MEET">📹 Google Meet</option>
                           <option value="TEAMS">💼 Microsoft Teams</option>
                           <option value="WEBRTC">🌐 Custom Platform</option>
                         </select>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                        <p className="text-xs text-gray-400 mt-2">
                           {sessionData.onlinePlatform === 'ZOOM' 
                             ? '✨ Zoom meeting will be created automatically with attendance tracking'
                             : 'You can add meeting link after creation'}
@@ -323,61 +329,15 @@ export default function FacultyDashboard() {
 
                     {sessionData.sessionType === 'offline' && (
                       <>
-                        <LocationPicker
-                          value={sessionData.location}
-                          onChange={(location) => setSessionData({ ...sessionData, location })}
-                        />
-                        
-                        {/* Verification Methods Section */}
-                        <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                          <h4 className="font-semibold">Verification Methods</h4>
-                          
-                          {/* QR Code Toggle */}
-                          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                            <div className="flex items-center space-x-3">
-                              <div className="text-2xl">📱</div>
-                              <div>
-                                <div className="font-medium text-white">Enable QR Code</div>
-                                <div className="text-sm text-gray-400">Students scan QR to mark attendance</div>
+                        {/* Geofencing Toggle */}
+                        <div className="p-5 bg-[#0f1420] border border-gray-700 rounded-xl">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <MapPin className="text-white" size={20} />
                               </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={sessionData.qrEnabled}
-                                onChange={(e) => setSessionData({ ...sessionData, qrEnabled: e.target.checked })}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                          </div>
-                          
-                          {/* Face Liveness Toggle */}
-                          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                            <div className="flex items-center space-x-3">
-                              <div className="text-2xl">👤</div>
                               <div>
-                                <div className="font-medium text-white">Enable Face Liveness</div>
-                                <div className="text-sm text-gray-400">Real-time movement check (not facial recognition)</div>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={sessionData.faceVerification}
-                                onChange={(e) => setSessionData({ ...sessionData, faceVerification: e.target.checked })}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                          </div>
-                          
-                          {/* Geofencing Toggle */}
-                          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                            <div className="flex items-center space-x-3">
-                              <div className="text-2xl">📍</div>
-                              <div>
-                                <div className="font-medium text-white">Enable Geofencing</div>
+                                <div className="font-semibold text-white">Enable Geofencing</div>
                                 <div className="text-sm text-gray-400">Require students to be at the session location</div>
                               </div>
                             </div>
@@ -388,8 +348,64 @@ export default function FacultyDashboard() {
                                 onChange={(e) => setSessionData({ ...sessionData, locationVerification: e.target.checked })}
                                 className="sr-only peer"
                               />
-                              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                             </label>
+                          </div>
+                        </div>
+                        
+                        {sessionData.locationVerification && (
+                          <LocationPicker
+                            value={sessionData.location}
+                            onChange={(location) => setSessionData({ ...sessionData, location })}
+                          />
+                        )}
+                        
+                        {/* Verification Methods Section */}
+                        <div className="space-y-4 pt-4 border-t border-gray-700">
+                          <h4 className="font-semibold text-white">Verification Methods</h4>
+                          
+                          {/* QR Code Toggle */}
+                          <div className="p-5 bg-[#0f1420] border border-gray-700 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="text-2xl">📱</div>
+                                <div>
+                                  <div className="font-semibold text-white">Enable QR Code</div>
+                                  <div className="text-sm text-gray-400">Students scan QR to mark attendance</div>
+                                </div>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={sessionData.qrEnabled}
+                                  onChange={(e) => setSessionData({ ...sessionData, qrEnabled: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                              </label>
+                            </div>
+                          </div>
+                          
+                          {/* Face Liveness Toggle */}
+                          <div className="p-5 bg-[#0f1420] border border-gray-700 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="text-2xl">👤</div>
+                                <div>
+                                  <div className="font-semibold text-white">Enable Face Liveness</div>
+                                  <div className="text-sm text-gray-400">Real-time movement check (not facial recognition)</div>
+                                </div>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={sessionData.faceVerification}
+                                  onChange={(e) => setSessionData({ ...sessionData, faceVerification: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                              </label>
+                            </div>
                           </div>
                         </div>
                       </>
@@ -398,14 +414,15 @@ export default function FacultyDashboard() {
                     <div className="flex space-x-3 pt-4">
                       <button 
                         type="submit" 
-                        className="btn-primary flex-1"
+                        className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl transition-all font-bold flex items-center justify-center gap-2"
                       >
-                        🚀 Start Session
+                        <span>🚀</span>
+                        <span>Start Session</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowStartSession(false)}
-                        className="btn-secondary flex-1"
+                        className="flex-1 px-6 py-4 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-all font-semibold"
                       >
                         Cancel
                       </button>

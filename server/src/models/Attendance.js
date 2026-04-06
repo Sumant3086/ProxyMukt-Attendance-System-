@@ -82,6 +82,18 @@ attendanceSchema.index({ class: 1, createdAt: -1 });
 attendanceSchema.index({ 'deviceInfo.isProxy': 1 });
 attendanceSchema.index({ status: 1, createdAt: -1 });
 
+// FANG-LEVEL: Compound indexes for complex queries
+attendanceSchema.index({ class: 1, student: 1, createdAt: -1 }); // Class attendance history
+attendanceSchema.index({ session: 1, 'deviceInfo.riskScore': -1 }); // High-risk attendances per session
+attendanceSchema.index({ student: 1, 'deviceInfo.ip': 1, createdAt: -1 }); // IP tracking per student
+attendanceSchema.index({ 'location.verified': 1, 'deviceInfo.riskScore': -1 }); // Suspicious locations
+attendanceSchema.index({ class: 1, status: 1, createdAt: -1 }); // Class status reports
+attendanceSchema.index({ 'deviceInfo.deviceFingerprint': 1, student: 1 }); // Device tracking
+
+// Sparse indexes (only index documents with the field)
+attendanceSchema.index({ 'onlineSessionData.joinTime': 1 }, { sparse: true });
+attendanceSchema.index({ 'location.suspicious': 1 }, { sparse: true, partialFilterExpression: { 'location.suspicious': true } });
+
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 
 export default Attendance;

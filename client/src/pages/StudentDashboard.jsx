@@ -8,6 +8,7 @@ import Loader from '../components/Loader';
 import StatsCard from '../components/StatsCard';
 import GlassCard from '../components/GlassCard';
 import AnimatedBackground from '../components/AnimatedBackground';
+import SessionNearbyNotification from '../components/SessionNearbyNotification';
 import { AttendanceTrendChart } from '../components/AttendanceChart';
 import axiosInstance from '../utils/axiosInstance';
 import { QrCode, BookOpen, Calendar, BarChart3, TrendingUp, Award } from 'lucide-react';
@@ -94,6 +95,7 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen relative">
       <AnimatedBackground />
+      <SessionNearbyNotification />
       <Navbar />
       <div className="flex">
         <Sidebar />

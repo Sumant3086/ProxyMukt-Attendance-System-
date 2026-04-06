@@ -27,6 +27,48 @@ export const RECENT_ATTENDANCE_LIMIT = 5;        // recent attendance records on
 export const DEFAULT_GEOFENCE_RADIUS = 100;      // default radius in meters
 export const EARTH_RADIUS_METERS = 6371e3;       // Earth's radius for Haversine formula
 
+// Smart geofencing rules based on session type
+export const GEOFENCE_RULES = {
+  CLASSROOM: {
+    radius: 50, // meters
+    strictMode: false,
+    requireLiveness: false,
+  },
+  EXAM: {
+    radius: 30, // tighter for exams
+    strictMode: true,
+    requireLiveness: true,
+  },
+  OUTDOOR: {
+    radius: 100, // larger for outdoor sessions
+    strictMode: false,
+    requireLiveness: false,
+  },
+  LAB: {
+    radius: 40,
+    strictMode: true,
+    requireLiveness: false,
+  },
+};
+
+// Peer validation settings
+export const PEER_VALIDATION = {
+  ENABLED: true,
+  MIN_STUDENTS_FOR_VALIDATION: 5, // Need at least 5 students to validate
+  OUTLIER_DISTANCE_THRESHOLD: 500, // meters - flag if 500m+ from peer cluster
+  OUTLIER_RISK_SCORE: 25,
+};
+
+// Impossible travel detection
+export const TRAVEL_DETECTION = {
+  ENABLED: true,
+  MAX_WALKING_SPEED: 1.4, // meters per second (5 km/h)
+  MAX_RUNNING_SPEED: 3.0, // meters per second (10.8 km/h)
+  MAX_VEHICLE_SPEED: 20.0, // meters per second (72 km/h)
+  IMPOSSIBLE_TRAVEL_RISK_SCORE: 30,
+  TIME_WINDOW_MINUTES: 30, // Check travel within last 30 minutes
+};
+
 // ============================================
 // DEVICE FINGERPRINTING & SECURITY
 // ============================================

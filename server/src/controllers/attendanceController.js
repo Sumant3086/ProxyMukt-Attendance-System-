@@ -7,11 +7,12 @@ import VerificationQueue from '../models/VerificationQueue.js';
 import { verifyQRToken, generateQRToken } from '../utils/qr.js';
 import { verifyGeofence, validateCoordinates, detectLocationSpoofing } from '../utils/geofencing.js';
 import { generateDeviceFingerprint, parseUserAgent, detectSuspiciousDevice } from '../utils/deviceFingerprint.js';
-import { checkProxyVPN } from '../utils/proxyDetection.js';
 import { detectResidentialProxy, calculateIPReputation } from '../utils/advancedProxyDetection.js';
+import { validatePeerLocation, detectImpossibleTravel } from '../utils/smartValidation.js';
+import { safeProxyCheck } from '../utils/circuitBreaker.js';
 import { createAuditLog } from '../middleware/auditLogger.js';
 import { ALERT_CREATION_THRESHOLD, RISK_FACTOR_SCORES } from '../config/constants.js';
-import { getIO } from '../utils/ioManager.js';
+import { getIO, emitAttendanceMarked } from '../utils/ioManager.js';
 
 /**
  * Check for nearby active sessions
@@ -222,10 +223,10 @@ export const markAttendance = async (req, res) => {
     const deviceDetails = parseUserAgent(req.headers['user-agent']);
     const ipAddress = req.ip || req.connection.remoteAddress;
     
-    // Check for proxy/VPN (async, don't block attendance)
+    // Check for proxy/VPN (async, don't block attendance) - WITH CIRCUIT BREAKER
     let proxyCheck = { isProxy: false, isVPN: false, isTor: false, riskScore: 0 };
     try {
-      proxyCheck = await checkProxyVPN(ipAddress);
+      proxyCheck = await safeProxyCheck(ipAddress);
     } catch (error) {
       console.error('Proxy check failed:', error.message);
     }
@@ -287,6 +288,40 @@ export const markAttendance = async (req, res) => {
     if (suspiciousDevice.isSuspicious) {
       totalRiskScore += RISK_FACTOR_SCORES.SUSPICIOUS_DEVICE;
       riskFactors.push('SUSPICIOUS_DEVICE');
+    }
+    
+    // SMART VALIDATION: Peer location validation
+    let peerValidation = { isPeerOutlier: false, riskScore: 0 };
+    if (location && location.latitude && location.longitude) {
+      try {
+        peerValidation = await validatePeerLocation(session._id, location);
+        if (peerValidation.isPeerOutlier) {
+          totalRiskScore += peerValidation.riskScore;
+          riskFactors.push('PEER_LOCATION_OUTLIER');
+          console.log(`⚠️ Peer validation: ${peerValidation.message}`);
+        }
+      } catch (error) {
+        console.error('Peer validation failed:', error.message);
+      }
+    }
+    
+    // SMART VALIDATION: Impossible travel detection
+    let travelDetection = { isImpossibleTravel: false, riskScore: 0 };
+    if (location && location.latitude && location.longitude) {
+      try {
+        travelDetection = await detectImpossibleTravel(
+          req.user._id,
+          location,
+          new Date()
+        );
+        if (travelDetection.isImpossibleTravel) {
+          totalRiskScore += travelDetection.riskScore;
+          riskFactors.push('IMPOSSIBLE_TRAVEL');
+          console.log(`⚠️ Impossible travel: ${travelDetection.message}`);
+        }
+      } catch (error) {
+        console.error('Travel detection failed:', error.message);
+      }
     }
     
     // Cap risk score at 100
@@ -533,6 +568,36 @@ export const getClassAttendanceReport = async (req, res) => {
         class: classData,
         report: report.sort((a, b) => a.percentage - b.percentage),
       },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Get peer cluster data for a session (Admin/Faculty)
+ */
+export const getPeerCluster = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+
+    const { calculatePeerCluster } = await import('../utils/smartValidation.js');
+    const clusterData = await calculatePeerCluster(sessionId);
+
+    res.json({
+      success: true,
+      data: clusterData,
     });
   } catch (error) {
     res.status(500).json({

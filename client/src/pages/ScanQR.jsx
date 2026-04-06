@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import axiosInstance from '../utils/axiosInstance';
-import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle, ShieldCheck, Smartphone, Monitor } from 'lucide-react';
 import { getDeviceInfo } from '../utils/deviceFingerprint';
 import FaceVerification from '../components/FaceVerification';
 import jsQR from 'jsqr';
@@ -23,6 +23,8 @@ export default function ScanQR() {
   const [showFaceVerification, setShowFaceVerification] = useState(false);
   const [pendingQrToken, setPendingQrToken] = useState(null);
   const scanIntervalRef = useRef(null);
+  const [attendanceMarked, setAttendanceMarked] = useState(false); // Prevent infinite loop
+  const [deviceFingerprint, setDeviceFingerprint] = useState(null);
   
   const startCamera = async () => {
     try {
@@ -63,7 +65,7 @@ export default function ScanQR() {
   };
   
   const scanQRCode = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || attendanceMarked || showFaceVerification) return;
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -79,10 +81,10 @@ export default function ScanQR() {
         inversionAttempts: 'dontInvert',
       });
       
-      if (code && code.data) {
-        // QR code detected!
+      if (code && code.data && !pendingQrToken) {
+        // QR code detected! Stop scanning immediately
         stopCamera();
-        setMessage('QR Code detected! Starting face verification...');
+        setMessage('✓ QR Code detected! Starting face verification...');
         setMessageType('success');
         
         // Trigger face verification
@@ -93,13 +95,15 @@ export default function ScanQR() {
   };
 
   const handleFaceVerified = async (result) => {
+    if (attendanceMarked) return; // Prevent duplicate calls
+    
     setFaceVerified(true);
     setShowFaceVerification(false);
     
     if (result?.bypassed) {
       setMessage('⚠️ Face verification skipped. Marking attendance...');
     } else if (result?.note) {
-      setMessage('✓ Live face detected! Marking attendance... (Note: Identity matching not yet implemented)');
+      setMessage('✓ Live face detected! Marking attendance...');
     } else {
       setMessage('✓ Face detected! Marking attendance...');
     }
@@ -112,9 +116,11 @@ export default function ScanQR() {
 
   const handleFaceFailed = async () => {
     setShowFaceVerification(false);
-    setMessage('⚠️ Face verification incomplete. You may try again or contact your instructor.');
+    setMessage('⚠️ Face verification incomplete. You can try again or scan a new QR code.');
     setMessageType('error');
     setPendingQrToken(null);
+    setFaceVerified(false);
+    setAttendanceMarked(false); // Reset to allow retry
   };
 
   const getLocation = () => {
@@ -171,7 +177,11 @@ export default function ScanQR() {
   };
 
   const markAttendance = async (qrToken) => {
+    if (attendanceMarked) return; // Prevent duplicate submissions
+    
     try {
+      setAttendanceMarked(true); // Set flag immediately to prevent duplicates
+      
       setMessage('Getting your location...');
       setMessageType('info');
       
@@ -219,6 +229,11 @@ export default function ScanQR() {
     } catch (error) {
       const errorData = error.response?.data;
       
+      // Reset flag on error to allow retry
+      setAttendanceMarked(false);
+      setPendingQrToken(null);
+      setFaceVerified(false);
+      
       if (errorData?.requiresLocation) {
         setMessage('Location verification is required for this session. Please enable location access.');
       } else if (errorData?.details) {
@@ -236,6 +251,11 @@ export default function ScanQR() {
     getLocation().catch(() => {
       // Location check failed, but continue anyway
     });
+    
+    // Collect device fingerprint on mount
+    const deviceInfo = getDeviceInfo();
+    setDeviceFingerprint(deviceInfo);
+    console.log('📱 Device Fingerprint Collected:', deviceInfo);
     
     return () => {
       stopCamera();
@@ -255,22 +275,62 @@ export default function ScanQR() {
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <div className="flex items-start gap-3">
                 <ShieldCheck className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" size={24} />
-                <div>
+                <div className="flex-1">
                   <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
                     🔒 Multi-Layer Security Active
                   </h3>
                   <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
                     <li>✓ Device fingerprinting enabled (tracking your unique device)</li>
-                    <li>✓ Live face detection (verifies a real person is present)</li>
+                    <li>✓ Liveness detection (verifies a real person is present)</li>
                     <li>✓ Location verification active (GPS-based geofencing)</li>
                     <li>✓ Proxy/VPN detection running (prevents spoofing)</li>
                   </ul>
-                  <p className="text-xs text-blue-700 dark:text-blue-500 mt-3 italic">
-                    Note: Face identity matching will be added in future updates. Currently detecting live faces only.
-                  </p>
+                  <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded">
+                    <p className="text-xs text-amber-800 dark:text-amber-400">
+                      <strong>Note:</strong> Biometric enrollment is not yet implemented. The system currently performs liveness detection (confirms a live person) but does not verify identity against stored biometric data. Full facial recognition and fingerprint verification will be available in future updates.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
+            
+            {/* Device Fingerprint Info */}
+            {deviceFingerprint && (
+              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Smartphone className="text-green-600 dark:text-green-400 flex-shrink-0 mt-1" size={20} />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-green-900 dark:text-green-300 mb-2 flex items-center gap-2">
+                      Device Information Collected
+                      <CheckCircle size={16} className="text-green-600 dark:text-green-400" />
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-green-800 dark:text-green-400">
+                      <div>
+                        <span className="font-medium">Browser:</span> {deviceFingerprint.userAgent.includes('Chrome') ? 'Chrome' : deviceFingerprint.userAgent.includes('Firefox') ? 'Firefox' : deviceFingerprint.userAgent.includes('Safari') ? 'Safari' : 'Other'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Platform:</span> {deviceFingerprint.platform}
+                      </div>
+                      <div>
+                        <span className="font-medium">Screen:</span> {deviceFingerprint.screenResolution}
+                      </div>
+                      <div>
+                        <span className="font-medium">Timezone:</span> {deviceFingerprint.timezone}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Device ID:</span> 
+                        <code className="ml-1 text-[10px] bg-green-100 dark:bg-green-900/40 px-1 py-0.5 rounded">
+                          {deviceFingerprint.fingerprint.substring(0, 24)}...
+                        </code>
+                      </div>
+                    </div>
+                    <p className="text-xs text-green-700 dark:text-green-500 mt-2 italic">
+                      This device signature helps track attendance patterns and detect suspicious activity. Note: This is not biometric data - it's technical device information only.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Location Status */}
             <div className={`mb-4 p-4 rounded-lg flex items-center space-x-2 ${
@@ -328,7 +388,8 @@ export default function ScanQR() {
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
                     <ShieldCheck size={20} className="text-purple-500" />
-                    <h2 className="font-semibold text-lg">Step 2: Face Verification</h2>
+                    <h2 className="font-semibold text-lg">Step 2: Liveness Detection</h2>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">(Identity verification not available)</span>
                   </div>
                   <FaceVerification
                     autoStart={true}
@@ -341,7 +402,22 @@ export default function ScanQR() {
               {faceVerified && !showFaceVerification && (
                 <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg flex items-center gap-2">
                   <CheckCircle size={18} />
-                  <span className="text-sm font-medium">Face verification passed</span>
+                  <span className="text-sm font-medium">Live presence confirmed (identity not verified)</span>
+                </div>
+              )}
+
+              {/* Show retry button after failed face verification */}
+              {!showFaceVerification && !faceVerified && !scanning && pendingQrToken && (
+                <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+                  <p className="text-yellow-800 dark:text-yellow-400 text-sm mb-3">
+                    Liveness detection was not completed. You can try again or scan a new QR code.
+                  </p>
+                  <button
+                    onClick={() => setShowFaceVerification(true)}
+                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  >
+                    Retry Liveness Detection
+                  </button>
                 </div>
               )}
 
@@ -406,7 +482,7 @@ export default function ScanQR() {
               <p className="text-sm text-muted-foreground mt-4 text-center">
                 {!scanning && !showFaceVerification && 'Point your camera at the QR code displayed by your instructor'}
                 {scanning && 'Hold steady - QR code will be detected automatically'}
-                {showFaceVerification && 'Complete face verification to mark attendance'}
+                {showFaceVerification && 'Complete liveness check to mark attendance'}
               </p>
             </div>
           </div>

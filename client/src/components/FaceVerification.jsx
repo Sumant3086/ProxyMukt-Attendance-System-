@@ -34,7 +34,7 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
       ]);
       setModelsLoaded(true);
       setStatus('ready');
-      setMessage('Ready! Note: This detects live faces only. Identity matching coming soon.');
+      setMessage('Ready to detect live presence. Note: No biometric data is stored yet - identity verification will be available in future updates.');
     } catch (err) {
       console.error('Model load error:', err);
       setStatus('failed');
@@ -90,12 +90,12 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
 
           setFaceBox(detection.detection.box);
           setStatus('verified');
-          setMessage('✓ Live face detected! Identity verification will be added in future updates.');
+          setMessage('✓ Live presence confirmed. Note: Identity verification requires biometric enrollment (not yet available).');
           clearInterval(intervalRef.current);
           cleanup();
           setTimeout(() => onVerified && onVerified({ 
             score: detection.detection.score,
-            note: 'Face detection only - identity matching not yet implemented' 
+            note: 'Liveness detection only - no biometric comparison performed' 
           }), 1500);
         } else {
           setFaceBox(null);
@@ -134,7 +134,8 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
     <div className="bg-gray-900 rounded-xl p-4 border border-gray-700">
       <div className="flex items-center gap-2 mb-3">
         <Camera size={18} className="text-purple-400" />
-        <span className="text-white font-semibold text-sm">Live Face Detection</span>
+        <span className="text-white font-semibold text-sm">Liveness Detection</span>
+        <span className="text-xs text-gray-400 ml-1">(No Identity Verification)</span>
         {status === 'verified' && <CheckCircle size={16} className="text-green-400 ml-auto" />}
         {status === 'failed' && <XCircle size={16} className="text-red-400 ml-auto" />}
         {(status === 'loading' || status === 'detecting') && (
@@ -143,10 +144,10 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
       </div>
       
       {/* Info Banner */}
-      <div className="mb-3 p-2 bg-purple-900/30 border border-purple-700/50 rounded-lg">
-        <p className="text-xs text-purple-300 flex items-start gap-2">
+      <div className="mb-3 p-2 bg-amber-900/30 border border-amber-700/50 rounded-lg">
+        <p className="text-xs text-amber-300 flex items-start gap-2">
           <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-          <span>This detects if a live person is present. Identity matching will be added in future updates.</span>
+          <span><strong>Liveness Detection Only:</strong> This verifies a live person is present but does not confirm identity. Biometric enrollment and facial recognition features are not yet implemented.</span>
         </p>
       </div>
 
@@ -190,7 +191,7 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
           onClick={startCamera}
           className="mt-3 w-full py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
         >
-          Start Live Face Detection
+          Start Liveness Check
         </button>
       )}
 

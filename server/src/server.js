@@ -24,6 +24,22 @@ import ipWhitelistRoutes from './routes/ipWhitelistRoutes.js';
 import { generateQRToken, getQRRotationInterval } from './utils/qr.js';
 import { setIO } from './utils/ioManager.js';
 
+// FANG-Level Middleware Imports
+import { 
+  contentSecurityPolicy, 
+  securityHeaders, 
+  sanitizeMiddleware,
+  suspiciousPatternMiddleware 
+} from './middleware/advancedSecurity.js';
+import { 
+  etagMiddleware, 
+  responseTimeMiddleware,
+  responseHelpersMiddleware 
+} from './middleware/responseOptimization.js';
+import { circuitBreakerMiddleware, getCircuitBreakerHealth } from './utils/circuitBreaker.js';
+import { advancedRateLimit } from './utils/advancedRateLimiter.js';
+import { getConnectionStats } from './utils/ioManager.js';
+
 dotenv.config();
 
 const app = express();
@@ -37,46 +53,125 @@ const io = new Server(httpServer, {
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true,
   },
+  // WebSocket optimization
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
 
 // Connect to database
 connectDB();
 
-// Set global io instance
+// Set global io instance (with optimizations)
 setIO(io);
 
-// Middleware
-app.use(helmet());
+// ============================================
+// FANG-LEVEL MIDDLEWARE STACK
+// ============================================
+
+// 1. Security Headers (First line of defense)
+app.use(contentSecurityPolicy());
+app.use(securityHeaders());
+app.use(helmet({
+  contentSecurityPolicy: false, // Using custom CSP
+  crossOriginEmbedderPolicy: false
+}));
+
+// 2. CORS Configuration
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// 3. Body Parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Rate limiting - Increased limits for development
+// 4. Input Sanitization (Prevent XSS, SQL Injection)
+app.use(sanitizeMiddleware);
+app.use(suspiciousPatternMiddleware);
+
+// 5. Response Optimization
+app.use(responseTimeMiddleware);
+app.use(etagMiddleware);
+app.use(responseHelpersMiddleware);
+
+// 6. Circuit Breaker Monitoring
+app.use(circuitBreakerMiddleware);
+
+// 7. Basic Rate Limiting (Fallback)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Increased from 100 to 500 requests per windowMs
+  max: 500,
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
-// Routes
+// ============================================
+// HEALTH & MONITORING ENDPOINTS
+// ============================================
+
+app.get('/health', (req, res) => {
+  const health = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
+    },
+    circuitBreakers: getCircuitBreakerHealth(),
+    websockets: getConnectionStats()
+  };
+  
+  res.json(health);
+});
+
+app.get('/metrics', (req, res) => {
+  const metrics = {
+    timestamp: new Date().toISOString(),
+    process: {
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      cpu: process.cpuUsage()
+    },
+    circuitBreakers: getCircuitBreakerHealth(),
+    websockets: getConnectionStats()
+  };
+  
+  res.json(metrics);
+});
+
+// ============================================
+// API ROUTES
+// ============================================
+
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Attendance System API',
-    version: '1.0.0',
+    message: 'ProxyMukt Attendance System API',
+    version: '2.0.0',
+    features: [
+      'Multi-layer fraud detection',
+      'Real-time WebSocket updates',
+      'Advanced rate limiting',
+      'Circuit breaker pattern',
+      'Response optimization',
+      'Security hardening'
+    ],
     timestamp: new Date().toISOString()
   });
 });
 
-// Test route
 app.get('/api/test', (req, res) => {
-  res.json({ message: 'API is working', timestamp: new Date().toISOString() });
+  res.json({ 
+    message: 'API is working', 
+    timestamp: new Date().toISOString(),
+    responseTime: res.getHeader('X-Response-Time')
+  });
 });
 
 app.use('/api/auth', authRoutes);

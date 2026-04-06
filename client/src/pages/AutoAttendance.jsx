@@ -7,6 +7,7 @@ import GlassCard from '../components/GlassCard';
 import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
 import voiceAnnouncer from '../utils/voiceAnnouncements';
+import { getDeviceInfo } from '../utils/deviceFingerprint';
 import { 
   MapPin, 
   CheckCircle, 
@@ -131,9 +132,14 @@ export default function AutoAttendance() {
       setStatus('marking');
       setMessage('Marking attendance automatically...');
 
+      // Get device information
+      const deviceInfo = getDeviceInfo();
+      console.log('📱 Device Fingerprint (Auto-Attendance):', deviceInfo);
+
       const { data } = await axiosInstance.post('/attendance/mark', {
         qrToken: nearbySession.qrToken,
         location: currentLocation,
+        deviceInfo,
         autoMarked: true
       });
 

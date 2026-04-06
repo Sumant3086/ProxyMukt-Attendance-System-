@@ -52,6 +52,11 @@ const sessionSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+      sessionType: {
+        type: String,
+        enum: ['CLASSROOM', 'EXAM', 'OUTDOOR', 'LAB'],
+        default: 'CLASSROOM',
+      },
     },
     attendanceCount: {
       type: Number,

@@ -73,10 +73,17 @@ export default function StartSession() {
         fetchSession();
       });
       
+      // Listen for verification settings updates
+      socket.on('verification-settings-updated', (data) => {
+        console.log('Verification settings updated:', data);
+        setVerificationSettings(data.verificationRequirements);
+      });
+      
       return () => {
         socket.off('qr-update');
         socket.off('attendance-marked');
         socket.off('class-attendance-update');
+        socket.off('verification-settings-updated');
       };
     }
   }, [socket, session, id]);
@@ -162,6 +169,10 @@ export default function StartSession() {
         verificationRequirements: newSettings
       });
       setVerificationSettings(newSettings);
+      
+      // Refresh session data to ensure everything is in sync
+      await fetchSession();
+      
       alert('Verification settings updated successfully!');
     } catch (error) {
       console.error('Error updating settings:', error);

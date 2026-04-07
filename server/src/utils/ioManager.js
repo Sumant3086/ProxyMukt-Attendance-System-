@@ -225,6 +225,19 @@ export function emitSessionStatusChange(sessionId, classId, status, data = {}) {
   });
 }
 
+/**
+ * Emit verification settings update
+ */
+export function emitVerificationSettingsUpdate(sessionId, verificationRequirements) {
+  if (!ioInstance) return;
+
+  // Emit to session room (faculty and students monitoring)
+  emitToSession(sessionId, 'verification-settings-updated', {
+    verificationRequirements,
+    timestamp: Date.now()
+  });
+}
+
 export default {
   setIO,
   getIO,
@@ -236,5 +249,6 @@ export default {
   getConnectionStats,
   emitAttendanceMarked,
   emitAlert,
-  emitSessionStatusChange
+  emitSessionStatusChange,
+  emitVerificationSettingsUpdate
 };

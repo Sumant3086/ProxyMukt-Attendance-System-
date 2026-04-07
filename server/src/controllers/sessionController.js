@@ -308,6 +308,10 @@ export const updateVerificationSettings = async (req, res) => {
     
     await session.save();
     
+    // Emit WebSocket event to notify all connected clients
+    const { emitVerificationSettingsUpdate } = await import('../utils/ioManager.js');
+    emitVerificationSettingsUpdate(session._id.toString(), session.verificationRequirements);
+    
     res.json({
       success: true,
       message: 'Verification settings updated successfully',

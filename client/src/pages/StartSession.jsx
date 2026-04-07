@@ -6,7 +6,7 @@ import Sidebar from '../components/Sidebar';
 import QRDisplay from '../components/QRDisplay';
 import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
-import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle, QrCode, Zap, Lock, MapPin } from 'lucide-react';
+import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle, QrCode, Zap, Lock, MapPin, Pause, Play, Download, Send, List, Bell } from 'lucide-react';
 
 export default function StartSession() {
   const { id } = useParams();
@@ -17,6 +17,10 @@ export default function StartSession() {
   const [socket, setSocket] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [qrEnabled, setQrEnabled] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState('0m');
+  const [recentAttendance, setRecentAttendance] = useState([]);
+  const [attendanceList, setAttendanceList] = useState([]);
+  const [showAttendanceList, setShowAttendanceList] = useState(false);
   const [verificationSettings, setVerificationSettings] = useState({
     qrCode: true,
     faceVerification: false,
@@ -27,6 +31,7 @@ export default function StartSession() {
   
   useEffect(() => {
     fetchSession();
+    fetchAttendanceList();
     
     // Get auth data for WebSocket authentication
     const authData = JSON.parse(localStorage.getItem('auth-storage') || '{}');
@@ -49,6 +54,31 @@ export default function StartSession() {
     };
   }, [id]);
   
+  // Session duration timer
+  useEffect(() => {
+    if (!session?.startTime) return;
+    
+    const updateDuration = () => {
+      const start = new Date(session.startTime);
+      const now = new Date();
+      const diffMs = now - start;
+      const diffMins = Math.floor(diffMs / 60000);
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      
+      if (hours > 0) {
+        setSessionDuration(`${hours}h ${mins}m`);
+      } else {
+        setSessionDuration(`${mins}m`);
+      }
+    };
+    
+    updateDuration();
+    const interval = setInterval(updateDuration, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, [session?.startTime]);
+  
   useEffect(() => {
     if (socket && session?.status === 'LIVE') {
       socket.emit('join-session', id);
@@ -60,10 +90,26 @@ export default function StartSession() {
       // Listen for real-time attendance updates
       socket.on('attendance-marked', (data) => {
         console.log('Attendance marked:', data);
+        
+        // Update session count
         setSession(prev => ({
           ...prev,
           attendanceCount: data.attendanceCount || (prev.attendanceCount + 1)
         }));
+        
+        // Add to recent attendance feed
+        if (data.student) {
+          const newEntry = {
+            studentName: data.student.name || 'Student',
+            studentId: data.student.studentId || data.studentId,
+            timestamp: new Date(),
+            status: 'success'
+          };
+          setRecentAttendance(prev => [newEntry, ...prev].slice(0, 10));
+        }
+        
+        // Refresh full attendance list
+        fetchAttendanceList();
       });
       
       // Listen for class attendance updates
@@ -71,6 +117,7 @@ export default function StartSession() {
         console.log('Class attendance update:', data);
         // Refresh session data
         fetchSession();
+        fetchAttendanceList();
       });
       
       // Listen for verification settings updates
@@ -79,11 +126,21 @@ export default function StartSession() {
         setVerificationSettings(data.verificationRequirements);
       });
       
+      // Listen for session status changes
+      socket.on('session-status-changed', (data) => {
+        console.log('Session status changed:', data);
+        setSession(prev => ({
+          ...prev,
+          status: data.status
+        }));
+      });
+      
       return () => {
         socket.off('qr-update');
         socket.off('attendance-marked');
         socket.off('class-attendance-update');
         socket.off('verification-settings-updated');
+        socket.off('session-status-changed');
       };
     }
   }, [socket, session, id]);
@@ -145,6 +202,54 @@ export default function StartSession() {
     }
   };
 
+  const fetchAttendanceList = async () => {
+    try {
+      const { data } = await axiosInstance.get(`/sessions/${id}/attendance`);
+      setAttendanceList(data.data.attendance || []);
+    } catch (error) {
+      console.error('Error fetching attendance list:', error);
+    }
+  };
+
+  const handleDownloadAttendance = async () => {
+    try {
+      const { data } = await axiosInstance.get(`/sessions/${id}/attendance`);
+      const attendance = data.data.attendance || [];
+      
+      // Create CSV content
+      const csvHeader = 'Student Name,Student ID,Email,Marked At,Status\n';
+      const csvRows = attendance.map(a => 
+        `"${a.student?.name || 'N/A'}","${a.student?.studentId || 'N/A'}","${a.student?.email || 'N/A'}","${new Date(a.markedAt).toLocaleString()}","${a.status || 'PRESENT'}"`
+      ).join('\n');
+      
+      const csvContent = csvHeader + csvRows;
+      
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `attendance_${session?.title}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading attendance:', error);
+      alert('Failed to download attendance');
+    }
+  };
+
+  const handleSendReminder = async () => {
+    try {
+      // TODO: Implement backend endpoint for sending reminders
+      alert('Reminder feature coming soon! This will send notifications to absent students.');
+    } catch (error) {
+      console.error('Error sending reminder:', error);
+      alert('Failed to send reminder');
+    }
+  };
+
   const toggleQR = async () => {
     try {
       const newQrState = !qrEnabled;
@@ -177,6 +282,26 @@ export default function StartSession() {
     } catch (error) {
       console.error('Error updating settings:', error);
       alert('Failed to update settings');
+    }
+  };
+
+  const handlePauseSession = async () => {
+    try {
+      await axiosInstance.post(`/sessions/${id}/pause`);
+      setSession(prev => ({ ...prev, status: 'PAUSED' }));
+    } catch (error) {
+      console.error('Error pausing session:', error);
+      alert('Failed to pause session');
+    }
+  };
+
+  const handleResumeSession = async () => {
+    try {
+      await axiosInstance.post(`/sessions/${id}/resume`);
+      setSession(prev => ({ ...prev, status: 'LIVE' }));
+    } catch (error) {
+      console.error('Error resuming session:', error);
+      alert('Failed to resume session');
     }
   };
 
@@ -215,17 +340,37 @@ export default function StartSession() {
                   {session?.class?.name}
                 </p>
               </div>
-              <button
-                onClick={handleEndSession}
-                className="flex items-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all font-semibold"
-              >
-                <StopCircle size={20} />
-                <span>End Session</span>
-              </button>
+              <div className="flex gap-3">
+                {session?.status === 'LIVE' && (
+                  <button
+                    onClick={handlePauseSession}
+                    className="flex items-center space-x-2 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition-all font-semibold"
+                  >
+                    <Pause size={20} />
+                    <span>Pause Session</span>
+                  </button>
+                )}
+                {session?.status === 'PAUSED' && (
+                  <button
+                    onClick={handleResumeSession}
+                    className="flex items-center space-x-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-all font-semibold"
+                  >
+                    <Play size={20} />
+                    <span>Resume Session</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleEndSession}
+                  className="flex items-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all font-semibold"
+                >
+                  <StopCircle size={20} />
+                  <span>End Session</span>
+                </button>
+              </div>
             </div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {/* Attendance Card */}
               <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-4">
@@ -253,14 +398,171 @@ export default function StartSession() {
                   <h3 className="text-lg font-semibold text-white">Session Time</h3>
                 </div>
                 <div className="text-xl font-semibold text-white mb-2">
-                  Started: {session?.startTime ? new Date(session.startTime).toLocaleTimeString() : 'N/A'}
+                  Duration: {sessionDuration}
                 </div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-600/20 border border-red-600 rounded-full">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                  <span className="text-red-400 text-sm font-semibold">LIVE</span>
+                <p className="text-sm text-gray-400 mb-3">
+                  Started: {session?.startTime ? new Date(session.startTime).toLocaleTimeString() : 'N/A'}
+                </p>
+                {session?.status === 'LIVE' && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-600/20 border border-red-600 rounded-full">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    <span className="text-red-400 text-sm font-semibold">LIVE</span>
+                  </div>
+                )}
+                {session?.status === 'PAUSED' && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-600/20 border border-yellow-600 rounded-full">
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                    <span className="text-yellow-400 text-sm font-semibold">PAUSED</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Verification Status Card */}
+              <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center">
+                    <Settings className="text-white" size={24} />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Verification</h3>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="text-green-500" size={16} />
+                    <span className="text-sm text-gray-300">QR Code</span>
+                  </div>
+                  {verificationSettings.faceVerification && (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="text-green-500" size={16} />
+                      <span className="text-sm text-gray-300">Face Liveness</span>
+                    </div>
+                  )}
+                  {verificationSettings.locationVerification && (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="text-green-500" size={16} />
+                      <span className="text-sm text-gray-300">GPS Location</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Zap className="text-blue-500" size={16} />
+                    <span className="text-sm text-gray-300">Background Checks</span>
+                  </div>
                 </div>
               </div>
             </div>
+            
+            {/* Quick Actions Bar */}
+            <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl p-4 mb-8">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleDownloadAttendance}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all font-semibold"
+                >
+                  <Download size={18} />
+                  <span>Download Attendance</span>
+                </button>
+                <button
+                  onClick={handleSendReminder}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-all font-semibold"
+                >
+                  <Send size={18} />
+                  <span>Send Reminder to Absent</span>
+                </button>
+                <button
+                  onClick={() => setShowAttendanceList(!showAttendanceList)}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all font-semibold"
+                >
+                  <List size={18} />
+                  <span>{showAttendanceList ? 'Hide' : 'View'} Attendance List</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Real-Time Attendance Feed */}
+            {recentAttendance.length > 0 && (
+              <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl p-6 mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                    <Bell className="text-white" size={20} />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">Recent Attendance</h3>
+                  <span className="ml-auto text-xs text-gray-400">Live Updates</span>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {recentAttendance.map((entry, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-green-900/20 border border-green-700 rounded-lg animate-fade-in"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                          <CheckCircle className="text-white" size={16} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-white">{entry.studentName}</p>
+                          <p className="text-xs text-gray-400">{entry.studentId}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Full Attendance List Modal */}
+            {showAttendanceList && (
+              <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl p-6 mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-white">Full Attendance List</h3>
+                  <button
+                    onClick={() => setShowAttendanceList(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left py-3 px-4 text-gray-400 font-semibold">#</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-semibold">Student Name</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-semibold">Student ID</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-semibold">Time</th>
+                        <th className="text-left py-3 px-4 text-gray-400 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceList.length > 0 ? (
+                        attendanceList.map((record, index) => (
+                          <tr key={record._id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                            <td className="py-3 px-4 text-gray-300">{index + 1}</td>
+                            <td className="py-3 px-4 text-white font-semibold">{record.student?.name || 'N/A'}</td>
+                            <td className="py-3 px-4 text-gray-300">{record.student?.studentId || 'N/A'}</td>
+                            <td className="py-3 px-4 text-gray-400 text-sm">
+                              {new Date(record.markedAt).toLocaleTimeString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="px-2 py-1 bg-green-900/30 text-green-400 rounded text-xs font-semibold">
+                                {record.status || 'PRESENT'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5" className="py-8 text-center text-gray-400">
+                            No attendance records yet
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             
             {/* QR Code & Verification Panel */}
             <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl p-6 mb-8">
@@ -455,7 +757,19 @@ export default function StartSession() {
               <h2 className="text-3xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-8">
                 Attendance QR Code
               </h2>
-              {qrEnabled ? (
+              {session?.status === 'PAUSED' ? (
+                <div className="text-center py-16">
+                  <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-yellow-900/30 border-2 border-yellow-600 flex items-center justify-center">
+                    <Pause size={48} className="text-yellow-500" />
+                  </div>
+                  <p className="text-yellow-400 mb-2 text-2xl font-bold">
+                    Session Paused
+                  </p>
+                  <p className="text-gray-400 text-lg">
+                    Students cannot mark attendance while the session is paused
+                  </p>
+                </div>
+              ) : qrEnabled ? (
                 <div className="flex justify-center">
                   <QRDisplay token={qrToken} rotationInterval={20000} />
                 </div>
@@ -476,9 +790,11 @@ export default function StartSession() {
                 </div>
               )}
               <p className="text-center text-sm text-gray-400 mt-6">
-                {qrEnabled 
-                  ? '📱 Students should scan this QR code to mark their attendance'
-                  : '💡 Enable QR code to allow students to mark attendance'
+                {session?.status === 'PAUSED'
+                  ? '⏸️ Resume the session to allow students to mark attendance'
+                  : qrEnabled 
+                    ? '📱 Students should scan this QR code to mark their attendance'
+                    : '💡 Enable QR code to allow students to mark attendance'
                 }
               </p>
             </div>

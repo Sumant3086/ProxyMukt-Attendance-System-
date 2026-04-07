@@ -25,6 +25,28 @@ const AuditLogs = lazy(() => import('./pages/AuditLogs'));
 const OnlineSession = lazy(() => import('./pages/OnlineSession'));
 const OnlineSessionMonitor = lazy(() => import('./pages/OnlineSessionMonitor'));
 
+// New pages
+const Reports = lazy(() => import('./pages/Reports'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Students = lazy(() => import('./pages/Students'));
+const Classes = lazy(() => import('./pages/Classes'));
+const Sessions = lazy(() => import('./pages/Sessions'));
+const Announcements = lazy(() => import('./pages/Announcements'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+// Student-specific pages
+const StudentPerformance = lazy(() => import('./pages/StudentPerformance'));
+const AttendanceGoals = lazy(() => import('./pages/AttendanceGoals'));
+const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
+const Timetable = lazy(() => import('./pages/Timetable'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const QRHistory = lazy(() => import('./pages/QRHistory'));
+
+// Admin-specific pages
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const SystemManagement = lazy(() => import('./pages/SystemManagement'));
+
 // Loading fallback component
 function PageLoader() {
   return (
@@ -197,6 +219,232 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['FACULTY', 'ADMIN']}>
               <OnlineSessionMonitor />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Reports Routes */}
+        <Route
+          path="/admin/reports"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/reports"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Alerts Routes */}
+        <Route
+          path="/admin/alerts"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Alerts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/alerts"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Alerts />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Students & Classes Routes (Faculty only) */}
+        <Route
+          path="/faculty/students"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Students />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/classes"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Classes />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Sessions Routes */}
+        <Route
+          path="/admin/sessions"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Sessions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/sessions"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Sessions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/sessions"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <Sessions />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Announcements Routes */}
+        <Route
+          path="/admin/announcements"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Announcements />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/announcements"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Announcements />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/announcements"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <Announcements />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Notifications Routes */}
+        <Route
+          path="/admin/notifications"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/notifications"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/notifications"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Settings Routes */}
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/settings"
+          element={
+            <ProtectedRoute allowedRoles={['FACULTY']}>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/settings"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Student-specific Routes */}
+        <Route
+          path="/student/performance"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <StudentPerformance />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/goals"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <AttendanceGoals />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/leave"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <LeaveManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/timetable"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <Timetable />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/leaderboard"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <Leaderboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/qr-history"
+          element={
+            <ProtectedRoute allowedRoles={['STUDENT']}>
+              <QRHistory />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Admin-specific Routes */}
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <UserManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/system"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <SystemManagement />
             </ProtectedRoute>
           }
         />

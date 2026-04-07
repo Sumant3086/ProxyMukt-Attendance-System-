@@ -4,15 +4,15 @@ import { useAuthStore } from '../store/authStore';
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   withCredentials: true,
-  timeout: 30000, // 30 second timeout
+  timeout: 10000, // Reduced to 10 seconds
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request cache for GET requests (5 minute TTL)
+// Request cache for GET requests (2 minute TTL for faster responses)
 const requestCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes (reduced from 5)
 
 // Request interceptor
 axiosInstance.interceptors.request.use(

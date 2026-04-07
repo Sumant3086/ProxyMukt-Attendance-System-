@@ -107,6 +107,88 @@ export const startSession = async (req, res) => {
 };
 
 /**
+ * Pause session
+ */
+export const pauseSession = async (req, res) => {
+  try {
+    const session = await Session.findById(req.params.id);
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+    
+    if (session.status !== 'LIVE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only live sessions can be paused',
+      });
+    }
+    
+    session.status = 'PAUSED';
+    await session.save();
+    
+    // Emit WebSocket event to notify all connected clients
+    const { emitSessionStatusChange } = await import('../utils/ioManager.js');
+    emitSessionStatusChange(session._id.toString(), session.class.toString(), 'PAUSED');
+    
+    res.json({
+      success: true,
+      message: 'Session paused successfully',
+      data: { session },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Resume session
+ */
+export const resumeSession = async (req, res) => {
+  try {
+    const session = await Session.findById(req.params.id);
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+    
+    if (session.status !== 'PAUSED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only paused sessions can be resumed',
+      });
+    }
+    
+    session.status = 'LIVE';
+    await session.save();
+    
+    // Emit WebSocket event to notify all connected clients
+    const { emitSessionStatusChange } = await import('../utils/ioManager.js');
+    emitSessionStatusChange(session._id.toString(), session.class.toString(), 'LIVE');
+    
+    res.json({
+      success: true,
+      message: 'Session resumed successfully',
+      data: { session },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
  * End session
  */
 export const endSession = async (req, res) => {
@@ -233,9 +315,23 @@ export const getSessionById = async (req, res) => {
       });
     }
     
-    // Ensure totalStudents is set from class if not already set
-    if (session.totalStudents === 0 && session.class?.students) {
-      session.totalStudents = session.class.students.length;
+    // CRITICAL FIX: Always ensure totalStudents is set from class
+    let needsSave = false;
+    if (!session.totalStudents || session.totalStudents === 0) {
+      if (session.class?.students) {
+        session.totalStudents = session.class.students.length;
+        needsSave = true;
+      }
+    }
+    
+    // Also ensure attendanceCount is accurate
+    const actualAttendanceCount = await Attendance.countDocuments({ session: session._id });
+    if (session.attendanceCount !== actualAttendanceCount) {
+      session.attendanceCount = actualAttendanceCount;
+      needsSave = true;
+    }
+    
+    if (needsSave) {
       await session.save();
     }
     

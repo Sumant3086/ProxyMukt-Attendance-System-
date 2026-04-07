@@ -45,6 +45,30 @@ export const ClassAttendanceChart = ({ data }) => {
 export const RiskDistributionChart = ({ data }) => {
   const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#dc2626'];
   
+  // Custom label with better positioning
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    // Only show label if percentage is significant (> 5%)
+    if (percent < 0.05) return null;
+
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="white" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        className="font-bold text-sm"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+  
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
       <h3 className="text-lg font-bold mb-4 flex items-center space-x-2">
@@ -58,8 +82,8 @@ export const RiskDistributionChart = ({ data }) => {
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={({ name, value }) => `${name}: ${value}`}
-            outerRadius={80}
+            label={renderCustomLabel}
+            outerRadius={100}
             fill="#8884d8"
             dataKey="value"
           >
@@ -68,6 +92,11 @@ export const RiskDistributionChart = ({ data }) => {
             ))}
           </Pie>
           <Tooltip />
+          <Legend 
+            verticalAlign="bottom" 
+            height={36}
+            formatter={(value, entry) => `${entry.payload.name}: ${entry.payload.value}`}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>

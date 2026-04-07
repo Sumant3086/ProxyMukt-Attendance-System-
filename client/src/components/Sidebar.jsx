@@ -1,10 +1,20 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, QrCode, BarChart3, Radar } from 'lucide-react';
+import { Home, Calendar, QrCode, BarChart3, Radar, FileText, AlertTriangle, Users, BookOpen, Clock, Megaphone, Settings, Bell, Target, Trophy } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useState, useEffect } from 'react';
 
 export default function Sidebar() {
   const location = useLocation();
   const { user } = useAuthStore();
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  
+  // TODO: Fetch unread counts from API
+  useEffect(() => {
+    // Placeholder for fetching unread counts
+    setUnreadAlerts(3);
+    setUnreadNotifications(5);
+  }, []);
   
   const getMenuItems = () => {
     switch (user?.role) {
@@ -12,11 +22,26 @@ export default function Sidebar() {
         return [
           { path: '/admin', icon: Home, label: 'Dashboard' },
           { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+          { path: '/admin/reports', icon: FileText, label: 'Reports' },
+          { path: '/admin/alerts', icon: AlertTriangle, label: 'Alerts', badge: unreadAlerts },
+          { path: '/admin/users', icon: Users, label: 'User Management' },
+          { path: '/admin/system', icon: Settings, label: 'System Management' },
+          { path: '/admin/sessions', icon: Clock, label: 'Sessions' },
+          { path: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+          { path: '/admin/notifications', icon: Bell, label: 'Notifications', badge: unreadNotifications },
         ];
       case 'FACULTY':
         return [
           { path: '/faculty', icon: Home, label: 'Dashboard' },
           { path: '/faculty/analytics', icon: BarChart3, label: 'Analytics' },
+          { path: '/faculty/reports', icon: FileText, label: 'Reports' },
+          { path: '/faculty/alerts', icon: AlertTriangle, label: 'Alerts', badge: unreadAlerts },
+          { path: '/faculty/students', icon: Users, label: 'Students' },
+          { path: '/faculty/classes', icon: BookOpen, label: 'Classes' },
+          { path: '/faculty/sessions', icon: Clock, label: 'Sessions' },
+          { path: '/faculty/announcements', icon: Megaphone, label: 'Announcements' },
+          { path: '/faculty/notifications', icon: Bell, label: 'Notifications', badge: unreadNotifications },
+          { path: '/faculty/settings', icon: Settings, label: 'Settings' },
         ];
       case 'STUDENT':
         return [
@@ -24,7 +49,16 @@ export default function Sidebar() {
           { path: '/scan', icon: QrCode, label: 'Scan QR' },
           { path: '/auto-attendance', icon: Radar, label: 'Auto-Attendance' },
           { path: '/student/attendance', icon: Calendar, label: 'My Attendance' },
-          { path: '/student/analytics', icon: BarChart3, label: 'Analytics' },
+          { path: '/student/performance', icon: BarChart3, label: 'Performance' },
+          { path: '/student/goals', icon: Target, label: 'Goals & Streaks' },
+          { path: '/student/leave', icon: FileText, label: 'Leave/Appeals' },
+          { path: '/student/timetable', icon: Calendar, label: 'Timetable' },
+          { path: '/student/leaderboard', icon: Trophy, label: 'Leaderboard' },
+          { path: '/student/qr-history', icon: QrCode, label: 'QR History' },
+          { path: '/student/sessions', icon: Clock, label: 'Sessions' },
+          { path: '/student/announcements', icon: Megaphone, label: 'Announcements' },
+          { path: '/student/notifications', icon: Bell, label: 'Notifications', badge: unreadNotifications },
+          { path: '/student/settings', icon: Settings, label: 'Settings' },
         ];
       default:
         return [];
@@ -56,12 +90,25 @@ export default function Sidebar() {
               )}
               
               {/* Icon with Animation */}
-              <div className={`transition-transform duration-300 ${isActive ? '' : 'group-hover:scale-110 group-hover:rotate-12'}`}>
+              <div className={`transition-transform duration-300 relative ${isActive ? '' : 'group-hover:scale-110 group-hover:rotate-12'}`}>
                 <Icon size={20} />
+                {/* Badge for unread counts */}
+                {item.badge > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
+                )}
               </div>
               
               {/* Label */}
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium flex-1">{item.label}</span>
+              
+              {/* Badge next to label (alternative position) */}
+              {item.badge > 0 && (
+                <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              )}
               
               {/* Hover Shimmer Effect */}
               {!isActive && (

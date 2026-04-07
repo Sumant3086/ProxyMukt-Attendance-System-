@@ -8,9 +8,34 @@ export const createClass = async (req, res) => {
   try {
     const { name, code, description, department, semester, schedule } = req.body;
     
+    // Validate required fields
+    if (!name || !code || !department) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, code, and department are required',
+      });
+    }
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+    }
+    
+    // Check for duplicate class code
+    const existingClass = await Class.findOne({ code: code.toUpperCase() });
+    if (existingClass) {
+      return res.status(400).json({
+        success: false,
+        message: 'Class code already exists',
+      });
+    }
+    
     const newClass = await Class.create({
       name,
-      code,
+      code: code.toUpperCase(),
       description,
       faculty: req.user._id,
       department,
@@ -26,9 +51,10 @@ export const createClass = async (req, res) => {
       data: { class: newClass },
     });
   } catch (error) {
+    console.error('Error creating class:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || 'Failed to create class',
     });
   }
 };
@@ -232,6 +258,27 @@ export const removeStudent = async (req, res) => {
     res.json({
       success: true,
       message: 'Student removed successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Get all available students for enrollment
+ */
+export const getAvailableStudents = async (req, res) => {
+  try {
+    const students = await User.find({ role: 'STUDENT' })
+      .select('name email studentId department')
+      .sort('name');
+    
+    res.json({
+      success: true,
+      data: { students },
     });
   } catch (error) {
     res.status(500).json({

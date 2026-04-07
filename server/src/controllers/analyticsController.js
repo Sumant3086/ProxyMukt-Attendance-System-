@@ -12,7 +12,7 @@ import {
 } from '../config/constants.js';
 
 /**
- * Get analytics data by section (lazy loading)
+ * Get analytics data by section (lazy loading) - OPTIMIZED
  * Sections: overview, trends, students, sessions
  */
 export const getAnalyticsBySection = async (req, res) => {
@@ -46,23 +46,25 @@ export const getAnalyticsBySection = async (req, res) => {
       if (endDate) sessionQuery.date.$lte = new Date(endDate);
     }
 
-    const sessions = await Session.find(sessionQuery).populate('class', 'name code').sort('-date').lean();
-    const sessionIds = sessions.map((s) => s._id);
-    const attendanceRecords = await Attendance.find({ session: { $in: sessionIds } })
-      .populate('student', 'name email studentId')
+    // Only select needed fields to reduce data transfer
+    const sessions = await Session.find(sessionQuery)
+      .select('_id title class date status totalStudents attendanceCount')
+      .populate('class', 'name code')
+      .sort('-date')
       .lean();
-
+    
+    const sessionIds = sessions.map((s) => s._id);
+    
     let result = {};
 
-    // Overview section
+    // Overview section - use aggregated data from sessions
     if (section === 'overview' || section === 'all') {
       const totalStudents = isAdmin ? await User.countDocuments({ role: 'STUDENT' }) : 0;
       const totalFaculty = isAdmin ? await User.countDocuments({ role: 'FACULTY' }) : 0;
 
+      // Use pre-calculated attendanceCount from sessions instead of querying attendance
       const sessionBreakdown = sessions.map((session) => {
-        const count = attendanceRecords.filter(
-          (a) => a.session.toString() === session._id.toString()
-        ).length;
+        const count = session.attendanceCount || 0;
         const total = session.totalStudents || 1;
         return {
           id: session._id,
@@ -89,7 +91,7 @@ export const getAnalyticsBySection = async (req, res) => {
       };
     }
 
-    // Trends section
+    // Trends section - use aggregated data
     if (section === 'trends' || section === 'all') {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - DAILY_TREND_DAYS);
@@ -100,9 +102,7 @@ export const getAnalyticsBySection = async (req, res) => {
           const day = new Date(session.date).toISOString().split('T')[0];
           if (!dailyMap[day]) dailyMap[day] = { total: 0, attendance: 0 };
           dailyMap[day].total += session.totalStudents || 0;
-          dailyMap[day].attendance += attendanceRecords.filter(
-            (a) => a.session.toString() === session._id.toString()
-          ).length;
+          dailyMap[day].attendance += session.attendanceCount || 0;
         });
       const dailyTrend = Object.entries(dailyMap)
         .map(([date, d]) => ({
@@ -116,8 +116,14 @@ export const getAnalyticsBySection = async (req, res) => {
       result.trends = dailyTrend;
     }
 
-    // Students section
+    // Students section - only fetch when needed
     if (section === 'students' || section === 'all') {
+      // Use aggregation pipeline for better performance
+      const attendanceRecords = await Attendance.find({ session: { $in: sessionIds } })
+        .select('student')
+        .populate('student', 'name email studentId')
+        .lean();
+      
       const studentMap = {};
       attendanceRecords.forEach((a) => {
         const sid = a.student?._id?.toString();
@@ -140,12 +146,10 @@ export const getAnalyticsBySection = async (req, res) => {
       result.students = atRiskStudents;
     }
 
-    // Sessions section
+    // Sessions section - use pre-calculated data
     if (section === 'sessions' || section === 'all') {
       const sessionBreakdown = sessions.map((session) => {
-        const count = attendanceRecords.filter(
-          (a) => a.session.toString() === session._id.toString()
-        ).length;
+        const count = session.attendanceCount || 0;
         const total = session.totalStudents || 1;
         return {
           id: session._id,

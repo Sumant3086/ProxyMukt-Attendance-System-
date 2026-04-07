@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
@@ -37,9 +39,12 @@ import {
   responseHelpersMiddleware 
 } from './middleware/responseOptimization.js';
 import { circuitBreakerMiddleware, getCircuitBreakerHealth } from './utils/circuitBreaker.js';
-import { advancedRateLimit } from './utils/advancedRateLimiter.js';
 import { getConnectionStats } from './utils/ioManager.js';
 import { sanitizeInput } from './middleware/inputValidation.js';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -190,8 +195,34 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/appeals', appealRoutes);
 app.use('/api/ip-whitelist', ipWhitelistRoutes);
 
-// Error handlers
-app.use(notFound);
+// ============================================
+// SERVE STATIC FILES IN PRODUCTION
+// ============================================
+
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.join(__dirname, '../../client/dist');
+  
+  // Serve static files
+  app.use(express.static(clientBuildPath));
+  
+  // Serve index.html for all non-API routes (SPA fallback)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+  
+  console.log('📦 Serving static files from:', clientBuildPath);
+} else {
+  // Development mode - API only
+  app.get('*', (req, res) => {
+    res.status(404).json({ 
+      message: 'Development mode - Frontend should run separately on port 5173',
+      apiEndpoint: '/api'
+    });
+  });
+}
+
+// Error handlers (must be after routes)
+// app.use(notFound);  // Commented out to allow SPA fallback
 app.use(errorHandler);
 
 // Socket.IO for real-time QR updates and alerts
@@ -259,7 +290,11 @@ console.log('🔧 Server configuration:');
 console.log('- NODE_ENV:', process.env.NODE_ENV);
 console.log('- PORT:', PORT);
 console.log('- CLIENT_URL:', process.env.CLIENT_URL);
-console.log('- Static file serving: DISABLED for backend-only deployment');
+if (process.env.NODE_ENV === 'production') {
+  console.log('- Static file serving: ENABLED (serving React app)');
+} else {
+  console.log('- Static file serving: DISABLED (development mode)');
+}
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

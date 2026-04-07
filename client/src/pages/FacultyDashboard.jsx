@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar';
 import Loader from '../components/Loader';
 import LocationPicker from '../components/LocationPicker';
 import axiosInstance from '../utils/axiosInstance';
-import { Plus, Calendar, Users } from 'lucide-react';
+import { Plus, Calendar, Users, MapPin } from 'lucide-react';
 
 export default function FacultyDashboard() {
   const navigate = useNavigate();
@@ -86,8 +86,11 @@ export default function FacultyDashboard() {
     setSessionData({
       title: `${cls.name} - Lecture`,
       location: null,
-      sessionType: 'offline', // Default to offline
-      onlinePlatform: 'ZOOM', // Default to Zoom
+      sessionType: 'offline',
+      onlinePlatform: 'ZOOM',
+      qrEnabled: true,
+      faceVerification: false,
+      locationVerification: false,
     });
     setShowStartSession(true);
   };
@@ -329,37 +332,6 @@ export default function FacultyDashboard() {
 
                     {sessionData.sessionType === 'offline' && (
                       <>
-                        {/* Geofencing Toggle */}
-                        <div className="p-5 bg-[#0f1420] border border-gray-700 rounded-xl">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <MapPin className="text-white" size={20} />
-                              </div>
-                              <div>
-                                <div className="font-semibold text-white">Enable Geofencing</div>
-                                <div className="text-sm text-gray-400">Require students to be at the session location</div>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={sessionData.locationVerification}
-                                onChange={(e) => setSessionData({ ...sessionData, locationVerification: e.target.checked })}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                            </label>
-                          </div>
-                        </div>
-                        
-                        {sessionData.locationVerification && (
-                          <LocationPicker
-                            value={sessionData.location}
-                            onChange={(location) => setSessionData({ ...sessionData, location })}
-                          />
-                        )}
-                        
                         {/* Verification Methods Section */}
                         <div className="space-y-4 pt-4 border-t border-gray-700">
                           <h4 className="font-semibold text-white">Verification Methods</h4>
@@ -407,7 +379,38 @@ export default function FacultyDashboard() {
                               </label>
                             </div>
                           </div>
+                          
+                          {/* Geofencing Toggle */}
+                          <div className="p-5 bg-[#0f1420] border border-gray-700 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                  <MapPin className="text-white" size={20} />
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-white">Enable Geofencing</div>
+                                  <div className="text-sm text-gray-400">Require students to be at the session location</div>
+                                </div>
+                              </div>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={sessionData.locationVerification}
+                                  onChange={(e) => setSessionData({ ...sessionData, locationVerification: e.target.checked })}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                              </label>
+                            </div>
+                          </div>
                         </div>
+                        
+                        {sessionData.locationVerification && (
+                          <LocationPicker
+                            value={sessionData.location}
+                            onChange={(location) => setSessionData({ ...sessionData, location })}
+                          />
+                        )}
                       </>
                     )}
 

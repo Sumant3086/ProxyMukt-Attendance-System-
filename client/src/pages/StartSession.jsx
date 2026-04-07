@@ -101,13 +101,30 @@ export default function StartSession() {
           if (updated.data.data.session.verificationRequirements) {
             setVerificationSettings(updated.data.data.session.verificationRequirements);
           }
+          
+          // If QR is enabled, fetch the QR token
+          if (updated.data.data.session.qrEnabled) {
+            const qrData = await axiosInstance.get(`/sessions/${id}/qr`);
+            setQrToken(qrData.data.data.qrToken);
+          }
         } catch (startError) {
           // If session is already live, just continue
           if (startError.response?.status === 400) {
             console.log('Session already live, continuing...');
+            // Still fetch QR if enabled
+            if (data.data.session.qrEnabled) {
+              const qrData = await axiosInstance.get(`/sessions/${id}/qr`);
+              setQrToken(qrData.data.data.qrToken);
+            }
           } else {
             throw startError;
           }
+        }
+      } else {
+        // Session is already live, fetch QR if enabled
+        if (data.data.session.qrEnabled) {
+          const qrData = await axiosInstance.get(`/sessions/${id}/qr`);
+          setQrToken(qrData.data.data.qrToken);
         }
       }
     } catch (error) {

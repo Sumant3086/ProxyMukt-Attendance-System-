@@ -312,7 +312,7 @@ This project is licensed under the MIT License.
 
 ## 📞 Support
 
-For support, email sumant3086@gmail.com or open an issue on GitHub.
+For support, email sumantyadav3086@gmail.com or open an issue on GitHub.
 
 ## 🔄 Version History
 

@@ -6,8 +6,6 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
@@ -204,50 +202,41 @@ app.use('/api/appeals', appealRoutes);
 app.use('/api/ip-whitelist', ipWhitelistRoutes);
 
 // ============================================
-// SERVE STATIC FILES IN PRODUCTION
+// 404 HANDLER FOR UNDEFINED API ROUTES
 // ============================================
 
-if (process.env.NODE_ENV === 'production') {
-  const clientBuildPath = path.join(__dirname, '../../client/dist');
-  
-  // Serve static files with caching
-  app.use(express.static(clientBuildPath, {
-    maxAge: '1d',
-    etag: true,
-  }));
-  
-  // Serve index.html for all non-API routes (SPA fallback)
-  app.get('*', (req, res) => {
-    // Skip API routes
-    if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/metrics') {
-      return res.status(404).json({ 
-        success: false,
-        message: 'API endpoint not found',
-        path: req.path,
-      });
-    }
-    
-    res.sendFile(path.join(clientBuildPath, 'index.html'));
+// Catch-all for undefined API routes
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ 
+    success: false,
+    message: 'API endpoint not found',
+    path: req.path,
   });
-  
-  console.log('📦 Serving static files from:', clientBuildPath);
-} else {
-  // Development mode - API only
-  app.get('*', (req, res) => {
-    if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'API endpoint not found',
-        path: req.path,
-      });
-    }
-    
-    res.status(404).json({ 
-      message: 'Development mode - Frontend should run separately on port 5173',
-      apiEndpoint: '/api',
-    });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'ProxyMukt API Server',
+    version: '2.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      metrics: '/metrics',
+      api: '/api',
+    },
+    timestamp: new Date().toISOString()
   });
-}
+});
+
+// Catch-all for non-API routes
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    success: false,
+    message: 'Route not found. This is an API-only server.',
+    hint: 'Frontend is served separately at https://proxymukt.onrender.com',
+  });
+});
 
 // Error handlers (must be after routes)
 // app.use(notFound);  // Commented out to allow SPA fallback
@@ -318,14 +307,11 @@ console.log('🔧 Server configuration:');
 console.log('- NODE_ENV:', process.env.NODE_ENV);
 console.log('- PORT:', PORT);
 console.log('- CLIENT_URL:', process.env.CLIENT_URL);
-if (process.env.NODE_ENV === 'production') {
-  console.log('- Static file serving: ENABLED (serving React app)');
-} else {
-  console.log('- Static file serving: DISABLED (development mode)');
-}
+console.log('- Mode: API-only server (frontend served separately)');
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 API Server running on port ${PORT}`);
+  console.log(`📡 Health check: http://localhost:${PORT}/health`);
 });
 
 // Global error handlers for production

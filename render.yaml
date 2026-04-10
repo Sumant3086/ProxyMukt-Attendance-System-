@@ -1,10 +1,10 @@
 services:
-  # Combined Backend + Frontend Service
+  # Backend API Service (API only, no frontend)
   - type: web
     name: proxymukt-backend
     env: node
     plan: free
-    buildCommand: cd client && npm install && npm run build && cd ../server && npm install
+    buildCommand: cd server && npm install
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
@@ -12,9 +12,11 @@ services:
       - key: PORT
         value: 10000
       - key: CLIENT_URL
-        value: https://proxymuktbackend.onrender.com
+        value: https://proxymukt.onrender.com
       # Add these in Render dashboard:
       # - JWT_SECRET
+      # - JWT_ACCESS_SECRET
+      # - JWT_REFRESH_SECRET
       # - QR_SECRET  
       # - MONGODB_URI
     healthCheckPath: /health

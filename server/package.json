@@ -10,7 +10,8 @@
     "seed": "node seed.js",
     "seed:fast": "node fastSeed.js",
     "reseed": "node reseed.js",
-    "build": "cd ../client && npm install && npm run build"
+    "build": "cd ../client && npm install && npm run build",
+    "deploy": "npm run build && npm start"
   },
   "keywords": [
     "attendance",

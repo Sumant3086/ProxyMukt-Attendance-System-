@@ -81,9 +81,9 @@ const seedDatabase = async () => {
       department: 'Administration',
     });
 
-    // 50 faculty: faculty1 to faculty50
+    // 5 faculty: faculty1 to faculty5
     const facultyData = [];
-    for (let i = 1; i <= 50; i++) {
+    for (let i = 1; i <= 5; i++) {
       facultyData.push({
         name: `faculty${i}`,
         email: `faculty${i}@gmail.com`,
@@ -94,9 +94,9 @@ const seedDatabase = async () => {
     }
     const faculty = await User.create(facultyData);
 
-    // 500 students: student1 to student500
+    // 200 students: student1 to student200
     const studentData = [];
-    for (let i = 1; i <= 500; i++) {
+    for (let i = 1; i <= 200; i++) {
       studentData.push({
         name: `student${i}`,
         email: `student${i}@gmail.com`,
@@ -113,7 +113,7 @@ const seedDatabase = async () => {
     // ALL STUDENTS enrolled in EVERY faculty member's class
     const allStudentIds = students.map(s => s._id);
 
-    // 6 main classes — each faculty1-6 gets ALL 500 students
+    // 5 main classes — each faculty gets ALL 200 students
     const classesData = [
       {
         name: 'Data Structures and Algorithms', code: 'CS201',
@@ -150,43 +150,10 @@ const seedDatabase = async () => {
         schedule: [{ day: 'Tuesday', startTime: '09:00', endTime: '10:30', room: 'Room 102' }, { day: 'Thursday', startTime: '09:00', endTime: '10:30', room: 'Room 102' }],
         students: allStudentIds,
       },
-      {
-        name: 'Computer Networks', code: 'CS701',
-        description: 'Network protocols, TCP/IP and security',
-        faculty: faculty[5]._id, department: 'Computer Science', semester: 'Spring 2025',
-        schedule: [{ day: 'Thursday', startTime: '14:00', endTime: '15:30', room: 'Lab 303' }, { day: 'Friday', startTime: '11:00', endTime: '12:30', room: 'Lab 303' }],
-        students: allStudentIds,
-      },
     ];
 
-    // Remaining faculty (7-50) each get ALL 500 students
-    const extraSubjects = [
-      'Software Engineering','Computer Architecture','Compiler Design','Artificial Intelligence',
-      'Cloud Computing','Cyber Security','Mobile App Development','Embedded Systems',
-      'Digital Electronics','Discrete Mathematics','Theory of Computation','Computer Graphics',
-      'Information Security','Big Data Analytics','Internet of Things','Blockchain Technology',
-      'Quantum Computing','Robotics','Natural Language Processing','Computer Vision',
-      'Distributed Systems','Parallel Computing','Software Testing','DevOps Practices',
-      'Microprocessors','VLSI Design','Signal Processing','Control Systems',
-      'Numerical Methods','Linear Algebra for CS','Probability & Statistics','Game Development',
-      'AR/VR Development','Edge Computing','5G Networks','Ethical Hacking',
-      'Digital Forensics','Bioinformatics','Health Informatics','E-Commerce Systems',
-      'ERP Systems','Supply Chain Tech','FinTech','Smart Grid Technology',
-    ];
-
-    for (let i = 6; i < faculty.length; i++) {
-      const subjectIndex = i - 6;
-      classesData.push({
-        name: extraSubjects[subjectIndex] || `Elective ${i}`,
-        code: `CS${900 + subjectIndex}`,
-        description: `${extraSubjects[subjectIndex] || 'Elective'} course`,
-        faculty: faculty[i]._id,
-        department: 'Computer Science',
-        semester: 'Spring 2025',
-        schedule: [{ day: 'Monday', startTime: '10:00', endTime: '11:30', room: `Room ${500 + i}` }],
-        students: allStudentIds,
-      });
-    }
+    // Remaining faculty (none - we only have 5 total)
+    // No extra classes needed
 
     const classes = await Class.create(classesData);
 
@@ -577,11 +544,11 @@ const seedDatabase = async () => {
     console.log('🔐 LOGIN CREDENTIALS');
     console.log('═══════════════════════════════════════════════════');
     console.log(`\n👑 ADMIN:    ${process.env.ADMIN_EMAIL || 'admin@proxymukt.com'}  /  ${process.env.ADMIN_PASSWORD || 'Admin@123'}`);
-    console.log('\n👨‍🏫 FACULTY:  faculty1@gmail.com  /  faculty1   (faculty1 to faculty50)');
-    console.log('\n👨‍🎓 STUDENT:  student1@gmail.com  /  student1   (student1 to student500)');
+    console.log('\n👨‍🏫 FACULTY:  faculty1@gmail.com  /  faculty1   (faculty1 to faculty5)');
+    console.log('\n👨‍🎓 STUDENT:  student1@gmail.com  /  student1   (student1 to student200)');
     console.log('\n📊 COMPREHENSIVE DATA SUMMARY:');
     console.log('═══════════════════════════════════════════════════');
-    console.log(`   Users           : 551 (1 admin + 50 faculty + 500 students)`);
+    console.log(`   Users           : 206 (1 admin + 5 faculty + 200 students)`);
     console.log(`   Classes         : ${classes.length}`);
     console.log(`   Sessions        : ${allSessions.length} (all COMPLETED)`);
     console.log(`   Attendance      : ${totalAttendance} records`);

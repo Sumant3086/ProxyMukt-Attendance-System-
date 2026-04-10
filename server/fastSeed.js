@@ -47,11 +47,11 @@ const fastSeed = async () => {
       department: 'Administration',
     });
 
-    // 10 faculty
+    // 5 faculty
     const facultyData = [];
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 5; i++) {
       facultyData.push({
-        name: `Faculty ${i}`,
+        name: `faculty${i}`,
         email: `faculty${i}@gmail.com`,
         password: `faculty${i}`,
         role: 'FACULTY',
@@ -60,11 +60,11 @@ const fastSeed = async () => {
     }
     const faculty = await User.insertMany(facultyData);
 
-    // 100 students
+    // 200 students
     const studentData = [];
-    for (let i = 1; i <= 100; i++) {
+    for (let i = 1; i <= 200; i++) {
       studentData.push({
-        name: `Student ${i}`,
+        name: `student${i}`,
         email: `student${i}@gmail.com`,
         password: `student${i}`,
         role: 'STUDENT',
@@ -84,7 +84,7 @@ const fastSeed = async () => {
       { name: 'Web Development', code: 'CS401', faculty: faculty[2]._id },
       { name: 'Machine Learning', code: 'CS501', faculty: faculty[3]._id },
       { name: 'Operating Systems', code: 'CS601', faculty: faculty[4]._id },
-      { name: 'Computer Networks', code: 'CS701', faculty: faculty[5]._id },
+      { name: 'Computer Networks', code: 'CS701', faculty: faculty[0]._id }, // Reuse faculty[0]
     ].map(c => ({
       ...c,
       description: `${c.name} course`,
@@ -255,11 +255,11 @@ const fastSeed = async () => {
     console.log('🔐 LOGIN CREDENTIALS');
     console.log('═══════════════════════════════════════════════════');
     console.log(`\n👑 ADMIN:    ${process.env.ADMIN_EMAIL || 'admin@proxymukt.com'}  /  ${process.env.ADMIN_PASSWORD || 'Admin@123'}`);
-    console.log('\n👨‍🏫 FACULTY:  faculty1@gmail.com  /  faculty1   (faculty1-10)');
-    console.log('\n👨‍🎓 STUDENT:  student1@gmail.com  /  student1   (student1-100)');
+    console.log('\n👨‍🏫 FACULTY:  faculty1@gmail.com  /  faculty1   (faculty1-5)');
+    console.log('\n👨‍🎓 STUDENT:  student1@gmail.com  /  student1   (student1-200)');
     console.log('\n📊 DATA SUMMARY:');
     console.log('═══════════════════════════════════════════════════');
-    console.log(`   Users        : ${stats.users} (1 admin + 10 faculty + 100 students)`);
+    console.log(`   Users        : ${stats.users} (1 admin + 5 faculty + 200 students)`);
     console.log(`   Classes      : ${stats.classes}`);
     console.log(`   Sessions     : ${stats.sessions}`);
     console.log(`   Attendance   : ${stats.attendance}`);

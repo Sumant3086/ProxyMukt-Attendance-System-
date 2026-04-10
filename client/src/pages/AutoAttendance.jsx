@@ -144,15 +144,15 @@ export default function AutoAttendance() {
       });
 
       setStatus('success');
-      setMessage('Attendance marked successfully! ✓');
-      voiceAnnouncer.announceAttendanceMarked('you');
+      setMessage('✓ Attendance marked successfully! No verification needed.');
+      voiceAnnouncer.speak('Attendance marked successfully. No verification needed.');
       
       // Add notification
       if (window.addNotification) {
         window.addNotification({
           type: 'success',
           title: 'Auto-Attendance Marked!',
-          message: `${nearbySession.title} - ${Math.round(distance)}m away`
+          message: `${nearbySession.title} - No verification required`
         });
       }
 

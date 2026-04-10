@@ -108,7 +108,7 @@ export const RATE_LIMIT_MAX_REQUESTS = 500;         // max requests per window
 // ============================================
 export const DEFAULT_SESSION_DURATION = 60;      // default session duration in minutes
 export const SESSION_STATUS_ENUM = ['SCHEDULED', 'LIVE', 'PAUSED', 'COMPLETED', 'CANCELLED'];
-export const ATTENDANCE_SOURCE_ENUM = ['QR', 'FACE', 'ZOOM', 'GOOGLE_MEET', 'TEAMS', 'WEBRTC'];
+export const ATTENDANCE_SOURCE_ENUM = ['QR', 'FACE', 'ZOOM', 'GOOGLE_MEET', 'TEAMS', 'WEBRTC', 'AUTO'];
 
 // ============================================
 // USER ROLES

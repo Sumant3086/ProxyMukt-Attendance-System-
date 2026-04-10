@@ -98,53 +98,56 @@ const seedDatabase = async () => {
 
     console.log('🏫 Seeding classes...');
 
-    // 6 main classes — each faculty1-6 gets one class with 80-100 students
+    // ALL STUDENTS enrolled in EVERY faculty member's class
+    const allStudentIds = students.map(s => s._id);
+
+    // 6 main classes — each faculty1-6 gets ALL 500 students
     const classesData = [
       {
         name: 'Data Structures and Algorithms', code: 'CS201',
         description: 'Fundamental data structures and algorithm design',
         faculty: faculty[0]._id, department: 'Computer Science', semester: 'Spring 2025',
         schedule: [{ day: 'Monday', startTime: '09:00', endTime: '10:30', room: 'Lab 101' }, { day: 'Wednesday', startTime: '09:00', endTime: '10:30', room: 'Lab 101' }],
-        students: students.slice(0, 80).map(s => s._id),
+        students: allStudentIds,
       },
       {
         name: 'Database Management Systems', code: 'CS301',
         description: 'Relational databases, SQL and NoSQL',
         faculty: faculty[1]._id, department: 'Computer Science', semester: 'Spring 2025',
         schedule: [{ day: 'Tuesday', startTime: '11:00', endTime: '12:30', room: 'Room 205' }, { day: 'Thursday', startTime: '11:00', endTime: '12:30', room: 'Room 205' }],
-        students: students.slice(80, 160).map(s => s._id),
+        students: allStudentIds,
       },
       {
         name: 'Web Development', code: 'CS401',
         description: 'Full-stack web development with React and Node.js',
         faculty: faculty[2]._id, department: 'Computer Science', semester: 'Spring 2025',
         schedule: [{ day: 'Monday', startTime: '14:00', endTime: '15:30', room: 'Lab 202' }, { day: 'Friday', startTime: '14:00', endTime: '15:30', room: 'Lab 202' }],
-        students: students.slice(160, 240).map(s => s._id),
+        students: allStudentIds,
       },
       {
         name: 'Machine Learning', code: 'CS501',
         description: 'Introduction to ML algorithms and applications',
         faculty: faculty[3]._id, department: 'Computer Science', semester: 'Spring 2025',
         schedule: [{ day: 'Wednesday', startTime: '14:00', endTime: '15:30', room: 'Room 301' }, { day: 'Friday', startTime: '09:00', endTime: '10:30', room: 'Room 301' }],
-        students: students.slice(240, 320).map(s => s._id),
+        students: allStudentIds,
       },
       {
         name: 'Operating Systems', code: 'CS601',
         description: 'Process management, memory and file systems',
         faculty: faculty[4]._id, department: 'Computer Science', semester: 'Spring 2025',
         schedule: [{ day: 'Tuesday', startTime: '09:00', endTime: '10:30', room: 'Room 102' }, { day: 'Thursday', startTime: '09:00', endTime: '10:30', room: 'Room 102' }],
-        students: students.slice(320, 400).map(s => s._id),
+        students: allStudentIds,
       },
       {
         name: 'Computer Networks', code: 'CS701',
         description: 'Network protocols, TCP/IP and security',
         faculty: faculty[5]._id, department: 'Computer Science', semester: 'Spring 2025',
         schedule: [{ day: 'Thursday', startTime: '14:00', endTime: '15:30', room: 'Lab 303' }, { day: 'Friday', startTime: '11:00', endTime: '12:30', room: 'Lab 303' }],
-        students: students.slice(400, 500).map(s => s._id),
+        students: allStudentIds,
       },
     ];
 
-    // Remaining faculty (7-50) each get a small class of 30 students
+    // Remaining faculty (7-50) each get ALL 500 students
     const extraSubjects = [
       'Software Engineering','Computer Architecture','Compiler Design','Artificial Intelligence',
       'Cloud Computing','Cyber Security','Mobile App Development','Embedded Systems',
@@ -161,7 +164,6 @@ const seedDatabase = async () => {
 
     for (let i = 6; i < faculty.length; i++) {
       const subjectIndex = i - 6;
-      const startStudent = (subjectIndex % 15) * 30;
       classesData.push({
         name: extraSubjects[subjectIndex] || `Elective ${i}`,
         code: `CS${900 + subjectIndex}`,
@@ -170,7 +172,7 @@ const seedDatabase = async () => {
         department: 'Computer Science',
         semester: 'Spring 2025',
         schedule: [{ day: 'Monday', startTime: '10:00', endTime: '11:30', room: `Room ${500 + i}` }],
-        students: students.slice(startStudent, startStudent + 30).map(s => s._id),
+        students: allStudentIds,
       });
     }
 

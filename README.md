@@ -173,7 +173,7 @@ ProxyMukt implements a **multi-layered security approach** combining rotating QR
 ### 🌐 **Try It Live:** [https://proxymukt.onrender.com/](https://proxymukt.onrender.com/)
 
 **Test Credentials:**
-- 👑 Admin: `admin@proxymukt.com` / `Admin@123`
+- 👑 Admin: `admin@proxymukt.com` / `Admin@123` 
 - 👨‍🏫 Faculty: `faculty1@gmail.com` / `faculty1`
 - 👨‍🎓 Student: `student1@gmail.com` / `student1`
 

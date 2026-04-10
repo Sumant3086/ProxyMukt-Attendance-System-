@@ -114,7 +114,7 @@ export const checkNearbySession = async (req, res) => {
  */
 export const markAttendance = async (req, res) => {
   try {
-    const { qrToken, location } = req.body;
+    const { qrToken, location, autoMarked } = req.body;
     
     // Verify QR token
     const payload = verifyQRToken(qrToken);
@@ -169,12 +169,15 @@ export const markAttendance = async (req, res) => {
       });
     }
     
+    // AUTO-ATTENDANCE: Skip all verification requirements
+    const isAutoAttendance = autoMarked === true;
+    
     // GEOFENCING VERIFICATION
-    let locationVerification = { verified: true, reason: 'Location not required' };
+    let locationVerification = { verified: true, reason: isAutoAttendance ? 'Auto-attendance - verification skipped' : 'Location not required' };
     let spoofingDetection = { isSuspicious: false };
     
-    // Check if location verification is required
-    const requiresLocation = session.verificationRequirements?.locationVerification || false;
+    // Check if location verification is required (skip for auto-attendance)
+    const requiresLocation = !isAutoAttendance && (session.verificationRequirements?.locationVerification || false);
     
     if (location && location.latitude && location.longitude) {
       // Validate coordinates
@@ -185,22 +188,26 @@ export const markAttendance = async (req, res) => {
         });
       }
       
-      // Check for location spoofing
-      spoofingDetection = detectLocationSpoofing(location);
-      
-      if (spoofingDetection.recommendation === 'BLOCK') {
-        return res.status(403).json({
-          success: false,
-          message: 'Location verification failed: Suspicious location data detected',
-          details: spoofingDetection.warnings,
-        });
+      // Skip spoofing detection for auto-attendance
+      if (!isAutoAttendance) {
+        // Check for location spoofing
+        spoofingDetection = detectLocationSpoofing(location);
+        
+        if (spoofingDetection.recommendation === 'BLOCK') {
+          return res.status(403).json({
+            success: false,
+            message: 'Location verification failed: Suspicious location data detected',
+            details: spoofingDetection.warnings,
+          });
+        }
       }
       
       // Verify geofence if session has location configured
       if (session.location && session.location.latitude && session.location.longitude) {
         locationVerification = verifyGeofence(session.location, location);
         
-        if (!locationVerification.verified && requiresLocation) {
+        // Only enforce geofence for non-auto attendance
+        if (!locationVerification.verified && requiresLocation && !isAutoAttendance) {
           return res.status(403).json({
             success: false,
             message: 'Location verification failed',
@@ -226,28 +233,32 @@ export const markAttendance = async (req, res) => {
     const deviceDetails = parseUserAgent(req.headers['user-agent']);
     const ipAddress = req.ip || req.connection.remoteAddress;
     
-    // Check for proxy/VPN (async, don't block attendance) - WITH CIRCUIT BREAKER
+    // Skip proxy/VPN checks for auto-attendance
     let proxyCheck = { isProxy: false, isVPN: false, isTor: false, riskScore: 0 };
-    try {
-      proxyCheck = await safeProxyCheck(ipAddress);
-    } catch (error) {
-      console.error('Proxy check failed:', error.message);
-    }
-    
-    // Detect residential proxy
     let residentialProxyCheck = { isResidentialProxy: false, riskScore: 0 };
-    try {
-      residentialProxyCheck = await detectResidentialProxy(ipAddress, req.user._id);
-    } catch (error) {
-      console.error('Residential proxy detection failed:', error.message);
-    }
-    
-    // Calculate IP reputation
     let ipReputation = { score: 0, isDatacenter: false, threatLevel: 'LOW' };
-    try {
-      ipReputation = await calculateIPReputation(ipAddress);
-    } catch (error) {
-      console.error('IP reputation check failed:', error.message);
+    
+    if (!isAutoAttendance) {
+      // Check for proxy/VPN (async, don't block attendance) - WITH CIRCUIT BREAKER
+      try {
+        proxyCheck = await safeProxyCheck(ipAddress);
+      } catch (error) {
+        console.error('Proxy check failed:', error.message);
+      }
+      
+      // Detect residential proxy
+      try {
+        residentialProxyCheck = await detectResidentialProxy(ipAddress, req.user._id);
+      } catch (error) {
+        console.error('Residential proxy detection failed:', error.message);
+      }
+      
+      // Calculate IP reputation
+      try {
+        ipReputation = await calculateIPReputation(ipAddress);
+      } catch (error) {
+        console.error('IP reputation check failed:', error.message);
+      }
     }
     
     // Get previous devices for this student
@@ -260,75 +271,79 @@ export const markAttendance = async (req, res) => {
       previousAttendances.map(a => a.deviceInfo)
     );
     
-    // Calculate total risk score
-    let totalRiskScore = Math.max(proxyCheck.riskScore, suspiciousDevice.riskScore);
+    // Calculate total risk score (skip for auto-attendance)
+    let totalRiskScore = 0;
     const riskFactors = [];
     
-    if (proxyCheck.isProxy) {
-      totalRiskScore += RISK_FACTOR_SCORES.PROXY_DETECTED;
-      riskFactors.push('PROXY_DETECTED');
-    }
-    if (proxyCheck.isVPN) {
-      totalRiskScore += RISK_FACTOR_SCORES.VPN_DETECTED;
-      riskFactors.push('VPN_DETECTED');
-    }
-    if (proxyCheck.isTor) {
-      totalRiskScore += RISK_FACTOR_SCORES.TOR_DETECTED;
-      riskFactors.push('TOR_DETECTED');
-    }
-    if (residentialProxyCheck.isResidentialProxy) {
-      totalRiskScore += RISK_FACTOR_SCORES.RESIDENTIAL_PROXY;
-      riskFactors.push('RESIDENTIAL_PROXY');
-    }
-    if (ipReputation.isDatacenter) {
-      totalRiskScore += RISK_FACTOR_SCORES.DATACENTER_IP;
-      riskFactors.push('DATACENTER_IP');
-    }
-    if (spoofingDetection.isSuspicious) {
-      totalRiskScore += RISK_FACTOR_SCORES.LOCATION_SPOOFING;
-      riskFactors.push('LOCATION_SPOOFING');
-    }
-    if (suspiciousDevice.isSuspicious) {
-      totalRiskScore += RISK_FACTOR_SCORES.SUSPICIOUS_DEVICE;
-      riskFactors.push('SUSPICIOUS_DEVICE');
-    }
-    
-    // SMART VALIDATION: Peer location validation
-    let peerValidation = { isPeerOutlier: false, riskScore: 0 };
-    if (location && location.latitude && location.longitude) {
-      try {
-        peerValidation = await validatePeerLocation(session._id, location);
-        if (peerValidation.isPeerOutlier) {
-          totalRiskScore += peerValidation.riskScore;
-          riskFactors.push('PEER_LOCATION_OUTLIER');
-          console.log(`⚠️ Peer validation: ${peerValidation.message}`);
-        }
-      } catch (error) {
-        console.error('Peer validation failed:', error.message);
+    if (!isAutoAttendance) {
+      totalRiskScore = Math.max(proxyCheck.riskScore, suspiciousDevice.riskScore);
+      
+      if (proxyCheck.isProxy) {
+        totalRiskScore += RISK_FACTOR_SCORES.PROXY_DETECTED;
+        riskFactors.push('PROXY_DETECTED');
       }
-    }
-    
-    // SMART VALIDATION: Impossible travel detection
-    let travelDetection = { isImpossibleTravel: false, riskScore: 0 };
-    if (location && location.latitude && location.longitude) {
-      try {
-        travelDetection = await detectImpossibleTravel(
-          req.user._id,
-          location,
-          new Date()
-        );
-        if (travelDetection.isImpossibleTravel) {
-          totalRiskScore += travelDetection.riskScore;
-          riskFactors.push('IMPOSSIBLE_TRAVEL');
-          console.log(`⚠️ Impossible travel: ${travelDetection.message}`);
-        }
-      } catch (error) {
-        console.error('Travel detection failed:', error.message);
+      if (proxyCheck.isVPN) {
+        totalRiskScore += RISK_FACTOR_SCORES.VPN_DETECTED;
+        riskFactors.push('VPN_DETECTED');
       }
+      if (proxyCheck.isTor) {
+        totalRiskScore += RISK_FACTOR_SCORES.TOR_DETECTED;
+        riskFactors.push('TOR_DETECTED');
+      }
+      if (residentialProxyCheck.isResidentialProxy) {
+        totalRiskScore += RISK_FACTOR_SCORES.RESIDENTIAL_PROXY;
+        riskFactors.push('RESIDENTIAL_PROXY');
+      }
+      if (ipReputation.isDatacenter) {
+        totalRiskScore += RISK_FACTOR_SCORES.DATACENTER_IP;
+        riskFactors.push('DATACENTER_IP');
+      }
+      if (spoofingDetection.isSuspicious) {
+        totalRiskScore += RISK_FACTOR_SCORES.LOCATION_SPOOFING;
+        riskFactors.push('LOCATION_SPOOFING');
+      }
+      if (suspiciousDevice.isSuspicious) {
+        totalRiskScore += RISK_FACTOR_SCORES.SUSPICIOUS_DEVICE;
+        riskFactors.push('SUSPICIOUS_DEVICE');
+      }
+      
+      // SMART VALIDATION: Peer location validation
+      let peerValidation = { isPeerOutlier: false, riskScore: 0 };
+      if (location && location.latitude && location.longitude) {
+        try {
+          peerValidation = await validatePeerLocation(session._id, location);
+          if (peerValidation.isPeerOutlier) {
+            totalRiskScore += peerValidation.riskScore;
+            riskFactors.push('PEER_LOCATION_OUTLIER');
+            console.log(`⚠️ Peer validation: ${peerValidation.message}`);
+          }
+        } catch (error) {
+          console.error('Peer validation failed:', error.message);
+        }
+      }
+      
+      // SMART VALIDATION: Impossible travel detection
+      let travelDetection = { isImpossibleTravel: false, riskScore: 0 };
+      if (location && location.latitude && location.longitude) {
+        try {
+          travelDetection = await detectImpossibleTravel(
+            req.user._id,
+            location,
+            new Date()
+          );
+          if (travelDetection.isImpossibleTravel) {
+            totalRiskScore += travelDetection.riskScore;
+            riskFactors.push('IMPOSSIBLE_TRAVEL');
+            console.log(`⚠️ Impossible travel: ${travelDetection.message}`);
+          }
+        } catch (error) {
+          console.error('Travel detection failed:', error.message);
+        }
+      }
+      
+      // Cap risk score at 100
+      totalRiskScore = Math.min(totalRiskScore, 100);
     }
-    
-    // Cap risk score at 100
-    totalRiskScore = Math.min(totalRiskScore, 100);
     
     // Create attendance record with enhanced device data
     const attendance = await Attendance.create({
@@ -336,7 +351,7 @@ export const markAttendance = async (req, res) => {
       student: req.user._id,
       class: session.class._id,
       qrToken,
-      attendanceSource: 'QR',
+      attendanceSource: isAutoAttendance ? 'AUTO' : 'QR',
       deviceInfo: {
         userAgent: req.headers['user-agent'],
         ip: ipAddress,
@@ -443,7 +458,9 @@ export const markAttendance = async (req, res) => {
     
     res.status(201).json({
       success: true,
-      message: '✓ Attendance marked successfully! Present for this session.',
+      message: isAutoAttendance 
+        ? '✓ Attendance marked successfully! No verification needed for auto-attendance.' 
+        : '✓ Attendance marked successfully! Present for this session.',
       data: { 
         attendance,
         locationVerification: {
@@ -451,7 +468,10 @@ export const markAttendance = async (req, res) => {
           distance: locationVerification.distance,
           message: locationVerification.reason,
         },
-        verificationStatus: {
+        verificationStatus: isAutoAttendance ? {
+          autoAttendance: true,
+          message: 'Auto-attendance - all verifications skipped',
+        } : {
           qrCode: true,
           faceVerification: session.verificationRequirements?.faceVerification ? 'Required' : 'Optional',
           locationVerification: session.verificationRequirements?.locationVerification ? 'Verified' : 'Optional',
@@ -459,6 +479,7 @@ export const markAttendance = async (req, res) => {
         studentName: req.user.name,
         sessionTitle: session.title,
         className: session.class.name,
+        isAutoAttendance,
       },
     });
   } catch (error) {

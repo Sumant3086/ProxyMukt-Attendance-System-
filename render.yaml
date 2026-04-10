@@ -3,18 +3,17 @@ services:
     name: proxymukt
     env: node
     plan: free
-    buildCommand: cd client && npm install && npm run build && cd ../server && npm install
+    buildCommand: cd client && npm install && VITE_API_URL=$VITE_API_URL npm run build && cd ../server && npm install
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: VITE_API_URL
+        value: https://proxymuktbackend.onrender.com/api
       - key: CLIENT_URL
-        fromService:
-          type: web
-          name: proxymukt
-          property: url
+        value: https://proxymukt.onrender.com
     headers:
       - path: /*
         name: X-Frame-Options

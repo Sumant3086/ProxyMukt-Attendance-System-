@@ -202,11 +202,32 @@ app.use('/api/ip-whitelist', ipWhitelistRoutes);
 if (process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, '../../client/dist');
   
-  // Serve static files
-  app.use(express.static(clientBuildPath));
+  // Serve static files with caching
+  app.use(express.static(clientBuildPath, {
+    maxAge: '1d',
+    etag: true,
+  }));
+  
+  // Health check endpoint (before SPA fallback)
+  app.get('/api/health', (req, res) => {
+    res.json({ 
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+  });
   
   // Serve index.html for all non-API routes (SPA fallback)
   app.get('*', (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'API endpoint not found',
+        path: req.path,
+      });
+    }
+    
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
   
@@ -214,9 +235,17 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   // Development mode - API only
   app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'API endpoint not found',
+        path: req.path,
+      });
+    }
+    
     res.status(404).json({ 
       message: 'Development mode - Frontend should run separately on port 5173',
-      apiEndpoint: '/api'
+      apiEndpoint: '/api',
     });
   });
 }

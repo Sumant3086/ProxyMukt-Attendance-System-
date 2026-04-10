@@ -8,6 +8,8 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node seed.js",
+    "seed:fast": "node fastSeed.js",
+    "reseed": "node reseed.js",
     "build": "cd ../client && npm install && npm run build"
   },
   "keywords": [

@@ -1,9 +1,10 @@
 /**
  * Keep-Alive Service
- * Prevents Render free tier cold starts by pinging server every 10 minutes
+ * Prevents Render free tier cold starts by pinging server every 5 minutes
+ * Uses lightweight health endpoint to minimize resource usage
  */
 
-const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes (more frequent to prevent cold starts)
 const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
 let pingInterval = null;
@@ -14,16 +15,27 @@ let isActive = false;
  */
 async function pingServer() {
   try {
-    const response = await fetch(`${API_URL}/api/test`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    
+    const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
     });
     
+    clearTimeout(timeoutId);
+    
     if (response.ok) {
-      console.log('🏓 Keep-alive ping successful');
+      const data = await response.json();
+      console.log('🏓 Keep-alive ping successful', data.uptime ? `(uptime: ${Math.floor(data.uptime)}s)` : '');
     }
   } catch (error) {
-    console.warn('⚠️ Keep-alive ping failed:', error.message);
+    if (error.name === 'AbortError') {
+      console.warn('⚠️ Keep-alive ping timeout');
+    } else {
+      console.warn('⚠️ Keep-alive ping failed:', error.message);
+    }
   }
 }
 
@@ -34,12 +46,12 @@ export function startKeepAlive() {
   if (isActive) return;
   
   isActive = true;
-  console.log('🚀 Keep-alive service started');
+  console.log('🚀 Keep-alive service started (ping every 5 minutes)');
   
   // Ping immediately
   pingServer();
   
-  // Then ping every 10 minutes
+  // Then ping every 5 minutes
   pingInterval = setInterval(pingServer, PING_INTERVAL);
   
   // Also ping when user becomes active after being idle
@@ -71,7 +83,7 @@ export function stopKeepAlive() {
 export async function checkServerStatus() {
   try {
     const startTime = Date.now();
-    const response = await fetch(`${API_URL}/api/test`, {
+    const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });

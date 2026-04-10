@@ -157,7 +157,7 @@ app.get('/metrics', (req, res) => {
 // API ROUTES
 // ============================================
 
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.json({ 
     message: 'ProxyMukt Attendance System API',
     version: '2.0.0',
@@ -178,6 +178,14 @@ app.get('/api/test', (req, res) => {
     message: 'API is working', 
     timestamp: new Date().toISOString(),
     responseTime: res.getHeader('X-Response-Time')
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
   });
 });
 
@@ -208,19 +216,10 @@ if (process.env.NODE_ENV === 'production') {
     etag: true,
   }));
   
-  // Health check endpoint (before SPA fallback)
-  app.get('/api/health', (req, res) => {
-    res.json({ 
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    });
-  });
-  
   // Serve index.html for all non-API routes (SPA fallback)
   app.get('*', (req, res) => {
     // Skip API routes
-    if (req.path.startsWith('/api/')) {
+    if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/metrics') {
       return res.status(404).json({ 
         success: false,
         message: 'API endpoint not found',

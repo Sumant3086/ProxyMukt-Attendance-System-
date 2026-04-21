@@ -1,9 +1,11 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import GlassCard from './GlassCard';
 import CountUpAnimation from './CountUpAnimation';
 import { TrendingUp } from 'lucide-react';
 
-export default function StatsCard({ icon: Icon, title, value, subtitle, color = 'blue', delay = 0, trend }) {
+// FANG-LEVEL: Memoized component to prevent unnecessary re-renders
+const StatsCard = memo(function StatsCard({ icon: Icon, title, value, subtitle, color = 'blue', delay = 0, trend }) {
   const colorClasses = {
     blue: 'from-indigo-500 to-indigo-600',      // Professional indigo
     green: 'from-green-500 to-green-600',       // Success green
@@ -113,4 +115,6 @@ export default function StatsCard({ icon: Icon, title, value, subtitle, color = 
       </GlassCard>
     </motion.div>
   );
-}
+});
+
+export default StatsCard;

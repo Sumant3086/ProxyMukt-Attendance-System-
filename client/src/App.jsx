@@ -19,7 +19,6 @@ const AdminAnalytics = lazy(() => import('./pages/AdminAnalytics'));
 const StartSession = lazy(() => import('./pages/StartSession'));
 const ScanQR = lazy(() => import('./pages/ScanQR'));
 const AutoAttendance = lazy(() => import('./pages/AutoAttendance'));
-const Analytics = lazy(() => import('./pages/Analytics'));
 const StudentAnalytics = lazy(() => import('./pages/StudentAnalytics'));
 const AuditLogs = lazy(() => import('./pages/AuditLogs'));
 const OnlineSession = lazy(() => import('./pages/OnlineSession'));

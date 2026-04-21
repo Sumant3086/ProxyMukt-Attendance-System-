@@ -16,17 +16,19 @@ const router = express.Router();
 
 router.use(authenticate);
 
-// Debug endpoint to check auth
-router.get('/debug-auth', (req, res) => {
-  res.json({
-    success: true,
-    user: req.user ? {
-      id: req.user._id,
-      email: req.user.email,
-      role: req.user.role,
-    } : null,
+// Remove debug endpoint in production - security risk
+if (process.env.NODE_ENV === 'development') {
+  router.get('/debug-auth', (req, res) => {
+    res.json({
+      success: true,
+      user: req.user ? {
+        id: req.user._id,
+        email: req.user.email,
+        role: req.user.role,
+      } : null,
+    });
   });
-});
+}
 
 router.post('/', authorize(['FACULTY', 'ADMIN']), createClass);
 router.get('/', getClasses);

@@ -17,8 +17,26 @@ export const register = async (req, res) => {
       });
     }
     
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+      });
+    }
+    
+    // Validate password strength (min 8 chars, at least 1 letter and 1 number)
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters with letters and numbers',
+      });
+    }
+    
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -29,7 +47,7 @@ export const register = async (req, res) => {
     // Create user data object
     const userData = {
       name,
-      email,
+      email: email.toLowerCase(),
       password,
       role: role || 'STUDENT',
       department,
@@ -55,7 +73,7 @@ export const register = async (req, res) => {
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     
@@ -97,8 +115,25 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Find user with password field
-    const user = await User.findOne({ email }).select('+password');
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required',
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+      });
+    }
+    
+    // Find user with password field (case-insensitive email)
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -129,7 +164,7 @@ export const login = async (req, res) => {
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     
@@ -184,17 +219,24 @@ export const refreshToken = async (req, res) => {
     // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
     
-    if (!decoded) {
+    if (!decoded || !decoded.userId) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid refresh token',
+        message: 'Invalid or expired refresh token',
       });
     }
     
     // Find user
     const user = await User.findById(decoded.userId).select('+refreshToken');
     
-    if (!user || user.refreshToken !== refreshToken) {
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or inactive',
+      });
+    }
+    
+    if (user.refreshToken !== refreshToken) {
       return res.status(401).json({
         success: false,
         message: 'Invalid refresh token',

@@ -1,7 +1,9 @@
+import { memo } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 
-export const AttendanceTrendChart = ({ data }) => {
+// FANG-LEVEL: Memoized chart components to prevent unnecessary re-renders
+export const AttendanceTrendChart = memo(function AttendanceTrendChart({ data }) {
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
       <h3 className="text-lg font-bold mb-4 flex items-center space-x-2">
@@ -21,9 +23,9 @@ export const AttendanceTrendChart = ({ data }) => {
       </ResponsiveContainer>
     </div>
   );
-};
+});
 
-export const ClassAttendanceChart = ({ data }) => {
+export const ClassAttendanceChart = memo(function ClassAttendanceChart({ data }) {
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
       <h3 className="text-lg font-bold mb-4">Class-wise Attendance</h3>
@@ -40,9 +42,9 @@ export const ClassAttendanceChart = ({ data }) => {
       </ResponsiveContainer>
     </div>
   );
-};
+});
 
-export const RiskDistributionChart = ({ data }) => {
+export const RiskDistributionChart = memo(function RiskDistributionChart({ data }) {
   const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#dc2626'];
   
   // Custom label with better positioning
@@ -101,9 +103,9 @@ export const RiskDistributionChart = ({ data }) => {
       </ResponsiveContainer>
     </div>
   );
-};
+});
 
-export const StudentPerformanceChart = ({ data }) => {
+export const StudentPerformanceChart = memo(function StudentPerformanceChart({ data }) {
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
       <h3 className="text-lg font-bold mb-4">Student Performance Distribution</h3>
@@ -118,9 +120,9 @@ export const StudentPerformanceChart = ({ data }) => {
       </ResponsiveContainer>
     </div>
   );
-};
+});
 
-export const HeatmapCard = ({ title, data }) => {
+export const HeatmapCard = memo(function HeatmapCard({ title, data }) {
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
       <h3 className="text-lg font-bold mb-4">{title}</h3>
@@ -140,9 +142,9 @@ export const HeatmapCard = ({ title, data }) => {
       </div>
     </div>
   );
-};
+});
 
-export const StatCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }) => {
+export const StatCard = memo(function StatCard({ icon: Icon, title, value, subtitle, color = 'blue' }) {
   const colorClasses = {
     blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600',
     green: 'bg-green-50 dark:bg-green-900/20 text-green-600',
@@ -165,4 +167,4 @@ export const StatCard = ({ icon: Icon, title, value, subtitle, color = 'blue' })
       </div>
     </div>
   );
-};
+});

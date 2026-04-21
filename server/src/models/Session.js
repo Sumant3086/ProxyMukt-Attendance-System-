@@ -110,6 +110,13 @@ sessionSchema.index({ class: 1, date: -1 });
 sessionSchema.index({ faculty: 1, status: 1 });
 sessionSchema.index({ status: 1, startTime: 1 });
 
+// FANG-LEVEL: Additional compound indexes for complex queries
+sessionSchema.index({ class: 1, status: 1, date: -1 }); // Class sessions by status and date
+sessionSchema.index({ faculty: 1, date: -1 }); // Faculty session history
+sessionSchema.index({ status: 1, date: 1 }); // Active sessions by date
+sessionSchema.index({ 'location.geofencingEnabled': 1, status: 1 }); // Geofenced live sessions
+sessionSchema.index({ sessionType: 1, status: 1, date: -1 }); // Session type filtering
+
 const Session = mongoose.model('Session', sessionSchema);
 
 export default Session;

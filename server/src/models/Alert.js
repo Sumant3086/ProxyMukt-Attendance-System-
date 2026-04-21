@@ -86,6 +86,13 @@ alertSchema.index({ riskScore: -1 });
 alertSchema.index({ createdAt: -1 });
 alertSchema.index({ session: 1 });
 
+// FANG-LEVEL: Additional compound indexes for alert management
+alertSchema.index({ status: 1, riskScore: -1, createdAt: -1 }); // Pending high-risk alerts
+alertSchema.index({ severity: 1, status: 1, createdAt: -1 }); // Critical pending alerts
+alertSchema.index({ class: 1, status: 1, createdAt: -1 }); // Class-specific alerts
+alertSchema.index({ student: 1, status: 1, riskScore: -1 }); // Student risk profile
+alertSchema.index({ reviewedBy: 1, reviewedAt: -1 }, { sparse: true }); // Reviewer activity
+
 const Alert = mongoose.model('Alert', alertSchema);
 
 export default Alert;

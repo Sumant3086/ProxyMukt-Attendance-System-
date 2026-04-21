@@ -342,7 +342,7 @@ const seedDatabase = async () => {
       };
       
       if (status === 'REVIEWED') {
-        alert.reviewedBy = faculty[randomBetween(0, 5)]._id;
+        alert.reviewedBy = faculty[randomBetween(0, 4)]._id;
         alert.reviewedAt = new Date(att.createdAt.getTime() + randomBetween(1, 24) * 3600000);
         alert.reviewNotes = randomChoice([
           'Verified legitimate attendance',
@@ -377,7 +377,7 @@ const seedDatabase = async () => {
     for (let i = 0; i < appealsData.length && i < createdAlerts.length; i++) {
       appealsData[i].alert = createdAlerts[i]._id;
       if (appealsData[i].status !== 'PENDING') {
-        appealsData[i].reviewedBy = faculty[randomBetween(0, 5)]._id;
+        appealsData[i].reviewedBy = faculty[randomBetween(0, 4)]._id;
         appealsData[i].reviewedAt = new Date();
         appealsData[i].reviewNotes = appealsData[i].status === 'APPROVED' 
           ? 'Appeal approved after verification' 
@@ -486,14 +486,16 @@ const seedDatabase = async () => {
 
     console.log('💻 Seeding online sessions...');
     
-    // Create some online sessions
+    // Create some online sessions using createdSessions which have _id
     const onlineSessionsData = [];
-    const recentSessions = allSessions.slice(0, 10);
+    const recentSessions = createdSessions.slice(0, 10);
     
     for (const session of recentSessions) {
       const participants = [];
-      const enrolledStudents = await Class.findById(session.class).select('students');
-      const attendingStudents = enrolledStudents.students.slice(0, randomBetween(30, 60));
+      const cls = classes.find(c => c._id.toString() === session.class.toString());
+      if (!cls || !cls.students) continue;
+      
+      const attendingStudents = cls.students.slice(0, randomBetween(30, 60));
       
       for (const studentId of attendingStudents) {
         const joinTime = new Date(session.startTime.getTime() + randomBetween(0, 10) * 60000);

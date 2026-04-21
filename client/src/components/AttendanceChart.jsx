@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   LineChart,
   Line,
@@ -11,7 +12,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-export function AttendanceTrendChart({ data }) {
+// FANG-LEVEL: Memoized chart components for performance optimization
+export const AttendanceTrendChart = memo(function AttendanceTrendChart({ data }) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data}>
@@ -30,9 +32,9 @@ export function AttendanceTrendChart({ data }) {
       </LineChart>
     </ResponsiveContainer>
   );
-}
+});
 
-export function AttendanceBarChart({ data }) {
+export const AttendanceBarChart = memo(function AttendanceBarChart({ data }) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data}>
@@ -46,4 +48,4 @@ export function AttendanceBarChart({ data }) {
       </BarChart>
     </ResponsiveContainer>
   );
-}
+});

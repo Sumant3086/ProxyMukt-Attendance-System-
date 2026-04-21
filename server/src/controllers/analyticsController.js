@@ -476,7 +476,7 @@ export const exportAttendanceCSV = async (req, res) => {
 };
 
 /**
- * Get class-specific detailed analytics
+ * Get class-specific detailed analytics - OPTIMIZED WITH AGGREGATION
  */
 export const getClassAnalytics = async (req, res) => {
   try {
@@ -493,55 +493,122 @@ export const getClassAnalytics = async (req, res) => {
       });
     }
     
-    // Get all sessions for this class
-    const sessions = await Session.find({ class: id }).sort('-date');
-    const sessionIds = sessions.map(s => s._id);
+    // OPTIMIZED: Use aggregation pipeline for student statistics
+    const studentStatsAggregation = await Attendance.aggregate([
+      {
+        $match: { class: classData._id }
+      },
+      {
+        $group: {
+          _id: '$student',
+          attended: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'studentInfo'
+        }
+      },
+      {
+        $unwind: '$studentInfo'
+      },
+      {
+        $project: {
+          _id: 1,
+          attended: 1,
+          name: '$studentInfo.name',
+          email: '$studentInfo.email',
+          studentId: '$studentInfo.studentId'
+        }
+      }
+    ]);
     
-    // Get all attendance records
-    const attendanceRecords = await Attendance.find({ 
-      session: { $in: sessionIds } 
-    }).populate('student', 'name email studentId');
+    // Get total completed sessions count
+    const completedSessionsCount = await Session.countDocuments({ 
+      class: id, 
+      status: 'COMPLETED' 
+    });
     
-    // Calculate per-student statistics
+    // Map student stats with percentage calculation
+    const studentStatsMap = new Map(
+      studentStatsAggregation.map(s => [s._id.toString(), s])
+    );
+    
     const studentStats = classData.students.map(student => {
-      const studentAttendance = attendanceRecords.filter(
-        a => a.student._id.toString() === student._id.toString()
-      );
-      
-      const totalSessions = sessions.filter(s => s.status === 'COMPLETED').length;
-      const attended = studentAttendance.length;
-      const percentage = totalSessions > 0 ? ((attended / totalSessions) * 100).toFixed(2) : 0;
+      const stats = studentStatsMap.get(student._id.toString());
+      const attended = stats?.attended || 0;
+      const percentage = completedSessionsCount > 0 
+        ? ((attended / completedSessionsCount) * 100).toFixed(2) 
+        : 0;
       
       return {
         id: student._id,
         name: student.name,
         email: student.email,
         studentId: student.studentId,
-        totalSessions,
+        totalSessions: completedSessionsCount,
         attended,
         percentage: parseFloat(percentage),
         status: percentage >= ATTENDANCE_THRESHOLD_GOOD ? 'Good' : percentage >= ATTENDANCE_THRESHOLD_WARNING ? 'Warning' : 'At Risk'
       };
     }).sort((a, b) => a.percentage - b.percentage);
     
-    // Session-wise breakdown
-    const sessionBreakdown = sessions.map(session => {
-      const sessionAttendance = attendanceRecords.filter(
-        a => a.session.toString() === session._id.toString()
-      );
-      
-      return {
-        id: session._id,
-        title: session.title,
-        date: session.date,
-        status: session.status,
-        attended: sessionAttendance.length,
-        total: classData.students.length,
-        percentage: classData.students.length > 0 
-          ? ((sessionAttendance.length / classData.students.length) * 100).toFixed(2)
-          : 0
-      };
-    });
+    // OPTIMIZED: Use aggregation for session breakdown
+    const sessionBreakdownAggregation = await Session.aggregate([
+      {
+        $match: { class: classData._id }
+      },
+      {
+        $lookup: {
+          from: 'attendances',
+          localField: '_id',
+          foreignField: 'session',
+          as: 'attendances'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          date: 1,
+          status: 1,
+          attended: { $size: '$attendances' },
+          total: classData.students.length,
+          percentage: {
+            $cond: {
+              if: { $gt: [classData.students.length, 0] },
+              then: {
+                $multiply: [
+                  { $divide: [{ $size: '$attendances' }, classData.students.length] },
+                  100
+                ]
+              },
+              else: 0
+            }
+          }
+        }
+      },
+      {
+        $sort: { date: -1 }
+      }
+    ]);
+    
+    const sessionBreakdown = sessionBreakdownAggregation.map(s => ({
+      id: s._id,
+      title: s.title,
+      date: s.date,
+      status: s.status,
+      attended: s.attended,
+      total: s.total,
+      percentage: s.percentage.toFixed(2)
+    }));
+    
+    const avgAttendance = sessionBreakdown.length > 0
+      ? (sessionBreakdown.reduce((sum, s) => sum + parseFloat(s.percentage), 0) / sessionBreakdown.length).toFixed(2)
+      : 0;
     
     res.json({
       success: true,
@@ -554,11 +621,9 @@ export const getClassAnalytics = async (req, res) => {
           totalStudents: classData.students.length
         },
         overview: {
-          totalSessions: sessions.length,
-          completedSessions: sessions.filter(s => s.status === 'COMPLETED').length,
-          averageAttendance: sessionBreakdown.length > 0
-            ? (sessionBreakdown.reduce((sum, s) => sum + parseFloat(s.percentage), 0) / sessionBreakdown.length).toFixed(2)
-            : 0
+          totalSessions: sessionBreakdown.length,
+          completedSessions: sessionBreakdown.filter(s => s.status === 'COMPLETED').length,
+          averageAttendance: avgAttendance
         },
         studentStats,
         sessionBreakdown

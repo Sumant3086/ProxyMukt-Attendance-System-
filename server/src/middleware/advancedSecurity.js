@@ -367,11 +367,11 @@ export function validatePasswordStrength(password) {
  */
 export function detectSuspiciousPatterns(req) {
   const suspiciousPatterns = [
-    /(\bor\b|\band\b).*=.*/, // SQL injection
-    /\$where|\$ne|\$gt|\$lt/, // NoSQL injection
-    /<script|javascript:|onerror=/i, // XSS
-    /\.\.\/|\.\.\\/, // Path traversal
-    /eval\(|exec\(|system\(/i // Code injection
+    /(\bor\b|\band\b)\s*=\s*=/, // SQL injection with equals
+    /\$where\s*:|{.*\$ne.*}|{.*\$gt.*}|{.*\$lt.*}/, // NoSQL injection operators
+    /<script[^>]*>|javascript:\s*|onerror\s*=/i, // XSS
+    /\.\.[\/\\]|\.\.%2[fF]|\.\.%5[cC]/, // Path traversal
+    /eval\s*\(|exec\s*\(|system\s*\(/i // Code injection
   ];
 
   const checkString = JSON.stringify({

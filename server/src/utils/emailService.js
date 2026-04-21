@@ -3,13 +3,33 @@ let transporter = null;
 // Try to configure email transporter if nodemailer is available
 try {
   const nodemailer = await import('nodemailer');
-  transporter = nodemailer.default.createTransport({
-    service: process.env.EMAIL_SERVICE || 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-  });
+  
+  const emailService = process.env.EMAIL_SERVICE || 'gmail';
+  
+  // Configure transporter based on email service
+  if (emailService.toLowerCase() === 'sendgrid') {
+    // SendGrid configuration
+    transporter = nodemailer.default.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false, // true for 465, false for other ports
+      auth: {
+        user: process.env.EMAIL_USER || 'apikey',
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+    console.log(`✅ Email service configured: SendGrid`);
+  } else {
+    // Generic configuration (Gmail, etc.)
+    transporter = nodemailer.default.createTransport({
+      service: emailService,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+    console.log(`✅ Email service configured: ${emailService}`);
+  }
 } catch (error) {
   console.warn('⚠️  Nodemailer not installed. Email notifications will be disabled.');
   console.warn('   To enable email notifications, run: npm install nodemailer');
@@ -28,7 +48,7 @@ export const sendHighRiskAlertEmail = async (adminEmail, alertData) => {
     const { student, riskScore, riskFactors, severity, session, class: classData } = alertData;
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: adminEmail,
       subject: `🚨 High-Risk Attendance Alert - ${student.name} (Risk Score: ${riskScore})`,
       html: `
@@ -123,7 +143,7 @@ export const sendAppealNotificationEmail = async (studentEmail, appealData) => {
     const { appealId, reason, status } = appealData;
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: studentEmail,
       subject: `Attendance Appeal - ${status === 'PENDING' ? 'Received' : status}`,
       html: `
@@ -171,7 +191,7 @@ export const sendDailyRiskReport = async (adminEmail, reportData) => {
     const { date, criticalCount, highCount, mediumCount, totalAlerts, topRisks } = reportData;
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: adminEmail,
       subject: `📊 Daily Risk Report - ${date}`,
       html: `

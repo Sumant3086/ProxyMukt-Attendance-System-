@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Attendance from '../models/Attendance.js';
 import Session from '../models/Session.js';
 import Class from '../models/Class.js';
@@ -51,6 +52,18 @@ export const checkNearbySession = async (req, res) => {
     let minDistance = Infinity;
     
     for (const session of liveSessions) {
+      // Validate session has required data
+      if (!session.class || !session.class.students) {
+        console.warn(`Session ${session._id} missing class or students data`);
+        continue;
+      }
+      
+      // Validate session has location data
+      if (!session.location || !session.location.latitude || !session.location.longitude) {
+        console.warn(`Session ${session._id} missing location data`);
+        continue;
+      }
+      
       // Check if student is enrolled
       const isEnrolled = session.class.students.some(
         id => id.toString() === req.user._id.toString()
@@ -560,7 +573,7 @@ export const getAttendanceStats = async (req, res) => {
 };
 
 /**
- * Get class attendance report (Faculty/Admin)
+ * Get class attendance report (Faculty/Admin) - OPTIMIZED WITH AGGREGATION
  */
 export const getClassAttendanceReport = async (req, res) => {
   try {
@@ -575,43 +588,57 @@ export const getClassAttendanceReport = async (req, res) => {
       });
     }
     
-    const sessions = await Session.find({
+    // Get total sessions count
+    const totalSessions = await Session.countDocuments({
       class: classId,
       status: { $in: ['COMPLETED', 'LIVE'] },
     });
     
-    const report = [];
+    // OPTIMIZED: Use aggregation pipeline to get attendance counts per student
+    const attendanceAggregation = await Attendance.aggregate([
+      {
+        $match: { class: mongoose.Types.ObjectId(classId) }
+      },
+      {
+        $group: {
+          _id: '$student',
+          attended: { $sum: 1 }
+        }
+      }
+    ]);
     
-    for (const student of classData.students) {
-      const attendance = await Attendance.find({
-        class: classId,
-        student: student._id,
-      });
-      
-      const percentage = sessions.length > 0
-        ? ((attendance.length / sessions.length) * 100).toFixed(2)
+    // Create a map for quick lookup
+    const attendanceMap = new Map(
+      attendanceAggregation.map(a => [a._id.toString(), a.attended])
+    );
+    
+    // Build report with O(n) complexity instead of O(n*m)
+    const report = classData.students.map(student => {
+      const attended = attendanceMap.get(student._id.toString()) || 0;
+      const percentage = totalSessions > 0
+        ? ((attended / totalSessions) * 100).toFixed(2)
         : 0;
       
-      report.push({
+      return {
         student: {
           _id: student._id,
           name: student.name,
           email: student.email,
           studentId: student.studentId,
         },
-        totalSessions: sessions.length,
-        attended: attendance.length,
-        missed: sessions.length - attendance.length,
+        totalSessions,
+        attended,
+        missed: totalSessions - attended,
         percentage,
         status: percentage < 75 ? 'AT_RISK' : 'GOOD',
-      });
-    }
+      };
+    }).sort((a, b) => a.percentage - b.percentage);
     
     res.json({
       success: true,
       data: {
         class: classData,
-        report: report.sort((a, b) => a.percentage - b.percentage),
+        report,
       },
     });
   } catch (error) {

@@ -4,9 +4,10 @@ services:
     name: proxymukt-backend
     env: node
     plan: free
+    region: oregon
     rootDir: server
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm ci
+    startCommand: node src/server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -20,4 +21,17 @@ services:
       # - JWT_REFRESH_SECRET
       # - QR_SECRET  
       # - MONGODB_URI
+      # - ADMIN_NAME
+      # - ADMIN_EMAIL
+      # - ADMIN_PASSWORD
+      # - ZOOM_ACCOUNT_ID
+      # - ZOOM_CLIENT_ID
+      # - ZOOM_CLIENT_SECRET
+      # - EMAIL_SERVICE
+      # - EMAIL_USER
+      # - EMAIL_PASSWORD
+      # - EMAIL_FROM
+      # - RATE_LIMIT_WINDOW
+      # - RATE_LIMIT_MAX_ATTEMPTS
     healthCheckPath: /health
+    autoDeploy: true

@@ -13,7 +13,7 @@ export default function Footer() {
         <div className="flex items-center space-x-2">
           <Shield size={16} className="text-indigo-600 dark:text-indigo-400" />
           <span className="font-medium">
-            Developed by <span className="text-indigo-600 dark:text-indigo-400 font-semibold">Sumant Yadav</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">Capstone Project | Department of CSE</span>
           </span>
         </div>
         

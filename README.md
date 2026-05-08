@@ -4,9 +4,9 @@
 
 ### *Intelligent Attendance System That Eliminates Proxy Attendance*
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/Sumant3086/ProxyMukt-Attendance-System-)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0-orange.svg)](https://github.com/Sumant3086/ProxyMukt-Attendance-System-)
+[![Version](https://img.shields.io/badge/version-2.0.0-orange.svg)](#)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/mongodb-%3E%3D6.0-green.svg)](https://www.mongodb.com/)
 
@@ -294,8 +294,8 @@ Before you begin, ensure you have the following installed:
 #### 1️⃣ Clone the Repository
 
 ```bash
-git clone https://github.com/Sumant3086/ProxyMukt-Attendance-System-.git
-cd ProxyMukt-Attendance-System-
+git clone https://github.com/your-repo/ProxyMukt-Attendance-System.git
+cd ProxyMukt-Attendance-System
 ```
 
 #### 2️⃣ Backend Setup
@@ -865,7 +865,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ```
 MIT License
 
-Copyright (c) 2025 Sumant Kumar
+Copyright (c) 2025 Capstone Project | Department of CSE
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -880,17 +880,17 @@ copies or substantial portions of the Software.
 
 ---
 
-## 👨‍💻 Author
+## 👨‍💻 Development Team
 
 <div align="center">
 
-### **Sumant Kumar**
+### **Capstone Project | Department of CSE**
 
-[![GitHub](https://img.shields.io/badge/GitHub-@Sumant3086-181717?style=for-the-badge&logo=github)](https://github.com/Sumant3086)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/sumant-kumar)
-[![Email](https://img.shields.io/badge/Email-sumantyadav3086@gmail.com-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:sumantyadav3086@gmail.com)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](#)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)](#)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white)](#)
 
-*Full Stack Developer | AI/ML Enthusiast | Open Source Contributor*
+*Computer Science Engineering Department Project*
 
 </div>
 

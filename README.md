@@ -28,7 +28,7 @@
 
 | Role | Email | Password |
 |:----:|:-----:|:--------:|
-| 👑 **Admin** | `admin@proxymukt.com` | `Admin@123` |
+| 👑 **Admin** | `sumant@gmail.com` | `@Sumant3086` |
 | 👨‍🏫 **Faculty** | `faculty1@gmail.com` | `faculty1` |
 | 👨‍🎓 **Student** | `student1@gmail.com` | `student1` |
 
@@ -173,7 +173,7 @@ ProxyMukt implements a **multi-layered security approach** combining rotating QR
 ### 🌐 **Try It Live:** [https://proxymukt.onrender.com/](https://proxymukt.onrender.com/)
 
 **Test Credentials:**
-- 👑 Admin: `admin@proxymukt.com` / `Admin@123` 
+- 👑 Admin: `sumant@gmail.com` / `@Sumant3086` 
 - 👨‍🏫 Faculty: `faculty1@gmail.com` / `faculty1`
 - 👨‍🎓 Student: `student1@gmail.com` / `student1`
 
@@ -365,8 +365,8 @@ JWT_EXPIRE=7d
 CLIENT_URL=http://localhost:5173
 
 # Admin Credentials (for seeding)
-ADMIN_EMAIL=admin@proxymukt.com
-ADMIN_PASSWORD=Admin@123
+ADMIN_EMAIL=sumant@gmail.com
+ADMIN_PASSWORD=@Sumant3086
 
 # Optional: Zoom Integration
 ZOOM_ACCOUNT_ID=your_zoom_account_id
@@ -402,7 +402,7 @@ After running `npm run seed`, use these credentials:
 
 | Role | Email | Password |
 |------|-------|----------|
-| 👑 **Admin** | admin@proxymukt.com | Admin@123 |
+| 👑 **Admin** | sumant@gmail.com | @Sumant3086 |
 | 👨‍🏫 **Faculty** | faculty1@gmail.com | faculty1 |
 | 👨‍🎓 **Student** | student1@gmail.com | student1 |
 
@@ -923,10 +923,10 @@ Special thanks to:
 Need help? We're here for you!
 
 - 🌐 **Live Demo**: [https://proxymukt.onrender.com/](https://proxymukt.onrender.com/)
-- 📧 **Email**: [sumantyadav3086@gmail.com](mailto:sumantyadav3086@gmail.com)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/Sumant3086/ProxyMukt-Attendance-System-/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/Sumant3086/ProxyMukt-Attendance-System-/discussions)
-- 📖 **Documentation**: [Wiki](https://github.com/Sumant3086/ProxyMukt-Attendance-System-/wiki)
+- 📧 **Email**: [Contact Department](#)
+- 🐛 **Issues**: [GitHub Issues](#)
+- 💬 **Discussions**: [GitHub Discussions](#)
+- 📖 **Documentation**: [Wiki](#)
 
 ---
 
@@ -984,13 +984,13 @@ Need help? We're here for you!
 
 <div align="center">
 
-![GitHub stars](https://img.shields.io/github/stars/Sumant3086/ProxyMukt-Attendance-System-?style=social)
-![GitHub forks](https://img.shields.io/github/forks/Sumant3086/ProxyMukt-Attendance-System-?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/Sumant3086/ProxyMukt-Attendance-System-?style=social)
+![GitHub stars](#)
+![GitHub forks](#)
+![GitHub watchers](#)
 
-![GitHub issues](https://img.shields.io/github/issues/Sumant3086/ProxyMukt-Attendance-System-)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/Sumant3086/ProxyMukt-Attendance-System-)
-![GitHub last commit](https://img.shields.io/github/last-commit/Sumant3086/ProxyMukt-Attendance-System-)
+![GitHub issues](#)
+![GitHub pull requests](#)
+![GitHub last commit](#)
 
 </div>
 

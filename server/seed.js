@@ -75,8 +75,8 @@ const seedDatabase = async () => {
     // Admin
     await User.create({
       name: 'Admin',
-      email: process.env.ADMIN_EMAIL || 'admin@proxymukt.com',
-      password: process.env.ADMIN_PASSWORD || 'Admin@123',
+      email: process.env.ADMIN_EMAIL || 'sumant@gmail.com',
+      password: process.env.ADMIN_PASSWORD || '@Sumant3086',
       role: 'ADMIN',
       department: 'Administration',
     });
@@ -545,7 +545,7 @@ const seedDatabase = async () => {
     console.log('═══════════════════════════════════════════════════');
     console.log('🔐 LOGIN CREDENTIALS');
     console.log('═══════════════════════════════════════════════════');
-    console.log(`\n👑 ADMIN:    ${process.env.ADMIN_EMAIL || 'admin@proxymukt.com'}  /  ${process.env.ADMIN_PASSWORD || 'Admin@123'}`);
+    console.log(`\n👑 ADMIN:    ${process.env.ADMIN_EMAIL || 'sumant@gmail.com'}  /  ${process.env.ADMIN_PASSWORD || '@Sumant3086'}`);
     console.log('\n👨‍🏫 FACULTY:  faculty1@gmail.com  /  faculty1   (faculty1 to faculty5)');
     console.log('\n👨‍🎓 STUDENT:  student1@gmail.com  /  student1   (student1 to student200)');
     console.log('\n📊 COMPREHENSIVE DATA SUMMARY:');

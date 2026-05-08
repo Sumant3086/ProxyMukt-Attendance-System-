@@ -1,363 +1,356 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
-import GlassCard from '../components/GlassCard';
-import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
-import voiceAnnouncer from '../utils/voiceAnnouncements';
+import { MapPin, CheckCircle, XCircle, AlertTriangle, Clock, Users } from 'lucide-react';
 import { getDeviceInfo } from '../utils/deviceFingerprint';
-import { 
-  MapPin, 
-  CheckCircle, 
-  XCircle, 
-  Radar,
-  Navigation,
-  Clock,
-  AlertTriangle,
-  Zap
-} from 'lucide-react';
+import { SUCCESS_MESSAGE_DELAY, REDIRECT_DELAY, LOCATION_TIMEOUT } from '../lib/constants';
 
 export default function AutoAttendance() {
   const navigate = useNavigate();
-  const [isTracking, setIsTracking] = useState(false);
   const [location, setLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('checking');
+  const [locationError, setLocationError] = useState('');
   const [nearbySession, setNearbySession] = useState(null);
-  const [status, setStatus] = useState('idle'); // idle, searching, found, marking, success, error
   const [message, setMessage] = useState('');
-  const [distance, setDistance] = useState(null);
-  const watchIdRef = useRef(null);
-  const checkIntervalRef = useRef(null);
+  const [messageType, setMessageType] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [attendanceMarked, setAttendanceMarked] = useState(false);
 
-  useEffect(() => {
-    return () => {
-      stopTracking();
-    };
-  }, []);
-
-  const startTracking = () => {
-    if (!navigator.geolocation) {
-      setStatus('error');
-      setMessage('Geolocation is not supported by your browser');
-      return;
-    }
-
-    setIsTracking(true);
-    setStatus('searching');
-    setMessage('Searching for nearby sessions...');
-
-    // Watch position continuously
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const newLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp
-        };
-        setLocation(newLocation);
-        checkNearbySession(newLocation);
-      },
-      (error) => {
-        setStatus('error');
-        setMessage(`Location error: ${error.message}`);
-        voiceAnnouncer.speak('Unable to get your location. Please check your settings.');
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+  // Get current location
+  const getLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        setLocationStatus('unavailable');
+        setLocationError('Geolocation is not supported by your browser');
+        reject(new Error('Geolocation not supported'));
+        return;
       }
-    );
 
-    // Check for nearby sessions every 10 seconds
-    checkIntervalRef.current = setInterval(() => {
-      if (location) {
-        checkNearbySession(location);
-      }
-    }, 10000);
+      setLocationStatus('checking');
+      setMessage('📍 Getting your current location...');
+      setMessageType('info');
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const locationData = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp,
+          };
+          setLocation(locationData);
+          setLocationStatus('granted');
+          resolve(locationData);
+        },
+        (error) => {
+          setLocationStatus('denied');
+          let errorMsg = 'Location access denied';
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMsg = 'Location permission denied. Please enable location access.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMsg = 'Location information unavailable.';
+              break;
+            case error.TIMEOUT:
+              errorMsg = 'Location request timed out.';
+              break;
+            default:
+              errorMsg = 'An unknown error occurred.';
+          }
+          
+          setLocationError(errorMsg);
+          setMessage(`❌ ${errorMsg}`);
+          setMessageType('error');
+          reject(error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: LOCATION_TIMEOUT,
+          maximumAge: 0,
+        }
+      );
+    });
   };
 
-  const stopTracking = () => {
-    setIsTracking(false);
-    setStatus('idle');
-    setMessage('');
-    
-    if (watchIdRef.current) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-  };
-
-  const checkNearbySession = async (currentLocation) => {
+  // Check for nearby sessions
+  const checkNearbySession = async (locationData) => {
     try {
+      setMessage('🔍 Checking for nearby sessions...');
+      setMessageType('info');
+
       const { data } = await axiosInstance.post('/attendance/check-nearby', {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
       });
 
       if (data.data.session) {
-        setNearbySession(data.data.session);
-        setDistance(data.data.distance);
-        setStatus('found');
-        setMessage(`Found session: ${data.data.session.title}`);
-        voiceAnnouncer.speak(`Session found nearby. ${data.data.session.title}. Distance: ${Math.round(data.data.distance)} meters.`);
-
-        // Auto-mark if within range
+        setNearbySession(data.data);
         if (data.data.withinRange && !data.data.alreadyMarked) {
-          await autoMarkAttendance(data.data.session._id, currentLocation);
+          setMessage(`✅ Session found nearby! You can mark auto-attendance for "${data.data.session.title}"`);
+          setMessageType('success');
         } else if (data.data.alreadyMarked) {
-          setStatus('success');
-          setMessage('Attendance already marked for this session');
+          setMessage(`ℹ️ You have already marked attendance for "${data.data.session.title}"`);
+          setMessageType('info');
+        } else {
+          setMessage(`📍 Session "${data.data.session.title}" found but you're ${Math.round(data.data.distance)}m away (max: ${data.data.session.location?.radius || 100}m)`);
+          setMessageType('info');
         }
       } else {
-        setNearbySession(null);
-        setDistance(null);
-        setStatus('searching');
-        setMessage('No active sessions nearby. Keep moving...');
+        setMessage('ℹ️ No active sessions found in your area');
+        setMessageType('info');
       }
     } catch (error) {
-      console.error('Error checking nearby sessions:', error);
+      setMessage(`❌ Error checking nearby sessions: ${error.response?.data?.message || error.message}`);
+      setMessageType('error');
     }
   };
 
-  const autoMarkAttendance = async (sessionId, currentLocation) => {
-    try {
-      setStatus('marking');
-      setMessage('Marking attendance automatically...');
+  // Mark auto attendance
+  const markAutoAttendance = async () => {
+    if (isProcessing || attendanceMarked || !nearbySession) return;
 
-      // Get device information
+    try {
+      setIsProcessing(true);
+      setMessage('⚡ Marking auto-attendance...');
+      setMessageType('info');
+
       const deviceInfo = getDeviceInfo();
-      console.log('📱 Device Fingerprint (Auto-Attendance):', deviceInfo);
+      const startTime = Date.now();
 
       const { data } = await axiosInstance.post('/attendance/mark', {
-        qrToken: nearbySession.qrToken,
-        location: currentLocation,
-        deviceInfo,
-        autoMarked: true
+        qrToken: nearbySession.session.qrToken,
+        location: location,
+        deviceInfo: deviceInfo,
+        autoMarked: true, // This tells backend it's auto-attendance
       });
 
-      setStatus('success');
-      setMessage('✓ Attendance marked successfully! No verification needed.');
-      voiceAnnouncer.speak('Attendance marked successfully. No verification needed.');
-      
-      // Add notification
-      if (window.addNotification) {
-        window.addNotification({
-          type: 'success',
-          title: 'Auto-Attendance Marked!',
-          message: `${nearbySession.title} - No verification required`
-        });
-      }
+      const processingTime = Date.now() - startTime;
+      setAttendanceMarked(true);
 
-      // Stop tracking and navigate back with refresh flag
+      const successMsg = `🎉 AUTO-ATTENDANCE MARKED SUCCESSFULLY!\n\n📚 Session: ${data.data.sessionTitle}\n🏫 Class: ${data.data.className}\n👤 Student: ${data.data.studentName}\n📍 Distance: ${Math.round(nearbySession.distance)}m\n⚡ Processing Time: ${processingTime}ms`;
+      setMessage(successMsg);
+      setMessageType('success');
+
+      // Redirect to dashboard
       setTimeout(() => {
-        stopTracking();
-        // Navigate with state to trigger refresh
-        navigate('/student', { state: { refresh: true } });
-      }, 2000);
+        setMessage('✅ Redirecting to dashboard...');
+        setTimeout(() => {
+          navigate('/student', { state: { refresh: true, attendanceMarked: true } });
+        }, REDIRECT_DELAY);
+      }, SUCCESS_MESSAGE_DELAY);
+
     } catch (error) {
-      setStatus('error');
-      setMessage(error.response?.data?.message || 'Failed to mark attendance');
-      voiceAnnouncer.announceAttendanceError(error.response?.data?.message || 'Unknown error');
+      const errorData = error.response?.data;
+      setIsProcessing(false);
+
+      // Handle specific proxy detection error
+      if (errorData?.errorType === 'PROXY_DETECTION') {
+        setMessage(`🚫 PROXY ATTENDANCE BLOCKED!\n\n${errorData.message}\n\n📱 Device: ${errorData.details.deviceId}\n👤 Previous Student: ${errorData.details.previousStudent} (${errorData.details.previousStudentId})\n\n⚠️ Each device can only mark attendance for ONE student per session.`);
+      } else {
+        setMessage(`❌ ${errorData?.message || 'Failed to mark auto-attendance. Please try again.'}`);
+      }
+      setMessageType('error');
     }
   };
 
-  const getStatusColor = () => {
-    switch (status) {
-      case 'searching': return 'from-blue-500 to-indigo-500';
-      case 'found': return 'from-yellow-500 to-orange-500';
-      case 'marking': return 'from-purple-500 to-pink-500';
-      case 'success': return 'from-green-500 to-emerald-500';
-      case 'error': return 'from-red-500 to-pink-500';
-      default: return 'from-gray-500 to-gray-600';
+  // Refresh location and check for sessions
+  const refreshLocation = async () => {
+    try {
+      const locationData = await getLocation();
+      await checkNearbySession(locationData);
+    } catch (error) {
+      console.error('Failed to refresh location:', error);
     }
   };
 
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'searching': return <Radar className="animate-spin" size={48} />;
-      case 'found': return <Navigation size={48} />;
-      case 'marking': return <Zap className="animate-pulse" size={48} />;
-      case 'success': return <CheckCircle size={48} />;
-      case 'error': return <XCircle size={48} />;
-      default: return <MapPin size={48} />;
-    }
-  };
+  useEffect(() => {
+    // Initialize auto-attendance flow
+    const initializeAutoAttendance = async () => {
+      try {
+        const locationData = await getLocation();
+        await checkNearbySession(locationData);
+      } catch (error) {
+        console.error('Failed to initialize auto-attendance:', error);
+      }
+    };
+
+    initializeAutoAttendance();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto"
-          >
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                Auto-Attendance
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                Auto Attendance
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Automatic attendance marking using geolocation
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
+                Automatic attendance marking based on your location
               </p>
             </div>
 
-            {/* Main Card */}
-            <GlassCard className="p-8" glow>
-              <div className="text-center">
-                {/* Status Icon */}
-                <motion.div
-                  animate={{ 
-                    scale: isTracking ? [1, 1.1, 1] : 1,
-                    rotate: status === 'searching' ? 360 : 0
-                  }}
-                  transition={{ 
-                    scale: { duration: 2, repeat: Infinity },
-                    rotate: { duration: 2, repeat: Infinity, ease: "linear" }
-                  }}
-                  className={`w-32 h-32 mx-auto mb-6 rounded-full bg-gradient-to-br ${getStatusColor()} flex items-center justify-center text-white shadow-2xl`}
-                >
-                  {getStatusIcon()}
-                </motion.div>
-
-                {/* Status Message */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={status}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="mb-8"
-                  >
-                    <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">
-                      {status === 'idle' && 'Ready to Track'}
-                      {status === 'searching' && 'Searching...'}
-                      {status === 'found' && 'Session Found!'}
-                      {status === 'marking' && 'Marking Attendance...'}
-                      {status === 'success' && 'Success!'}
-                      {status === 'error' && 'Error'}
-                    </h2>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      {message || 'Start tracking to automatically mark attendance when you enter a session area'}
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Location Info */}
-                {location && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl"
-                  >
-                    <div className="flex items-center justify-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
-                      <MapPin size={16} />
-                      <span>Accuracy: ±{Math.round(location.accuracy)}m</span>
-                    </div>
-                  </motion.div>
+            {/* Location Status - Mobile Responsive */}
+            <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center space-x-2 ${
+              locationStatus === 'granted'
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+                : locationStatus === 'denied'
+                ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+                : locationStatus === 'checking'
+                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
+                : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
+            }`}>
+              <MapPin size={18} className="flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base">
+                  {locationStatus === 'granted' && 'Location Access Granted'}
+                  {locationStatus === 'denied' && 'Location Access Denied'}
+                  {locationStatus === 'checking' && 'Checking Location...'}
+                  {locationStatus === 'unavailable' && 'Location Unavailable'}
+                </p>
+                {location && locationStatus === 'granted' && (
+                  <p className="text-xs sm:text-sm mt-1">
+                    Accuracy: ±{Math.round(location.accuracy)}m
+                  </p>
                 )}
-
-                {/* Session Info */}
-                {nearbySession && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800"
-                  >
-                    <h3 className="font-bold text-lg mb-2 text-gray-800 dark:text-white">
-                      {nearbySession.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {nearbySession.class?.name}
-                    </p>
-                    {distance !== null && (
-                      <div className="flex items-center justify-center space-x-2 text-sm">
-                        <Navigation size={16} className="text-indigo-600" />
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                          {Math.round(distance)}m away
-                        </span>
-                      </div>
-                    )}
-                  </motion.div>
+                {locationError && (
+                  <p className="text-xs sm:text-sm mt-1 break-words">{locationError}</p>
                 )}
-
-                {/* Control Button */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={isTracking ? stopTracking : startTracking}
-                  disabled={status === 'marking'}
-                  className={`px-8 py-4 rounded-xl font-semibold text-white shadow-lg transition-all ${
-                    isTracking
-                      ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
-                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {status === 'marking' ? (
-                    <span className="flex items-center space-x-2">
-                      <Loader size="sm" />
-                      <span>Marking...</span>
-                    </span>
-                  ) : isTracking ? (
-                    'Stop Tracking'
-                  ) : (
-                    'Start Auto-Tracking'
-                  )}
-                </motion.button>
               </div>
-            </GlassCard>
-
-            {/* Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-              <GlassCard className="p-6 text-center">
-                <Radar className="mx-auto mb-3 text-indigo-600" size={32} />
-                <h3 className="font-bold mb-2">Auto-Detection</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Automatically finds nearby sessions
-                </p>
-              </GlassCard>
-
-              <GlassCard className="p-6 text-center">
-                <Zap className="mx-auto mb-3 text-purple-600" size={32} />
-                <h3 className="font-bold mb-2">Instant Marking</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Marks attendance when in range
-                </p>
-              </GlassCard>
-
-              <GlassCard className="p-6 text-center">
-                <Clock className="mx-auto mb-3 text-green-600" size={32} />
-                <h3 className="font-bold mb-2">Time Saving</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  No need to scan QR codes
-                </p>
-              </GlassCard>
+              {locationStatus === 'denied' && (
+                <button
+                  onClick={refreshLocation}
+                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 flex-shrink-0"
+                >
+                  Retry
+                </button>
+              )}
             </div>
 
-            {/* Warning */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl flex items-start space-x-3"
-            >
-              <AlertTriangle className="text-yellow-600 flex-shrink-0 mt-0.5" size={20} />
-              <div className="text-sm text-yellow-800 dark:text-yellow-400">
-                <p className="font-semibold mb-1">Battery Usage Notice</p>
-                <p>Continuous location tracking may drain your battery. Stop tracking when not needed.</p>
+            {/* Status Message - Mobile Responsive */}
+            {message && (
+              <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg ${
+                messageType === 'success'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+                  : messageType === 'info'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+              }`}>
+                <div className="flex items-start space-x-2">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {messageType === 'success' ? <CheckCircle size={18} /> : messageType === 'info' ? <AlertTriangle size={18} /> : <XCircle size={18} />}
+                  </div>
+                  <span className="whitespace-pre-line text-sm sm:text-base leading-relaxed">{message}</span>
+                </div>
               </div>
-            </motion.div>
-          </motion.div>
+            )}
+
+            {/* Nearby Session Card */}
+            {nearbySession && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card-elevated p-6 mb-6"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-2">
+                      {nearbySession.session.title}
+                    </h3>
+                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <Users size={16} />
+                        <span>{nearbySession.session.class.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin size={16} />
+                        <span>Distance: {Math.round(nearbySession.distance)}m</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock size={16} />
+                        <span>Status: {nearbySession.session.status}</span>
+                      </div>
+                    </div>
+                    
+                    {nearbySession.withinRange && !nearbySession.alreadyMarked && !attendanceMarked && (
+                      <div className="mt-4">
+                        <button
+                          onClick={markAutoAttendance}
+                          disabled={isProcessing}
+                          className="btn-primary flex items-center space-x-2"
+                        >
+                          <CheckCircle size={20} />
+                          <span>{isProcessing ? 'Marking...' : 'Mark Auto Attendance'}</span>
+                        </button>
+                      </div>
+                    )}
+                    
+                    {nearbySession.alreadyMarked && (
+                      <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 rounded-lg">
+                        <p className="text-sm font-medium">✅ Attendance already marked for this session</p>
+                      </div>
+                    )}
+                    
+                    {!nearbySession.withinRange && (
+                      <div className="mt-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 rounded-lg">
+                        <p className="text-sm font-medium">
+                          📍 You need to be within {nearbySession.session.location?.radius || 100}m to mark auto-attendance
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Refresh Button */}
+            <div className="text-center">
+              <button
+                onClick={refreshLocation}
+                disabled={locationStatus === 'checking'}
+                className="btn-secondary flex items-center space-x-2 mx-auto"
+              >
+                <MapPin size={20} />
+                <span>{locationStatus === 'checking' ? 'Checking...' : 'Refresh Location'}</span>
+              </button>
+            </div>
+
+            {/* Info Card */}
+            <div className="mt-8 card-elevated p-6">
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4">
+                📍 How Auto Attendance Works
+              </h3>
+              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</div>
+                  <p>Your location is automatically detected when you visit this page</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</div>
+                  <p>System checks for active sessions with geofencing enabled in your area</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</div>
+                  <p>If you're within the session's geofence radius, you can mark attendance automatically</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">4</div>
+                  <p>No QR scanning or face verification required - just location-based attendance</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>

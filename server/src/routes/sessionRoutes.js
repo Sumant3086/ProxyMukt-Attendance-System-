@@ -9,6 +9,7 @@ import {
   getSessions,
   getSessionById,
   getSessionAttendance,
+  getSessionAttendancePublic,
   updateVerificationSettings,
   toggleQR,
 } from '../controllers/sessionController.js';
@@ -29,6 +30,7 @@ router.patch('/:id/toggle-qr', authorize(['FACULTY', 'ADMIN']), validateObjectId
 router.get('/:id/qr', validateObjectId(), getQRToken);
 router.get('/', getSessions);
 router.get('/:id', validateObjectId(), getSessionById);
+router.get('/:id/attendance-public', validateObjectId(), getSessionAttendancePublic);
 router.get('/:id/attendance', authorize(['FACULTY', 'ADMIN']), validateObjectId(), getSessionAttendance);
 
 export default router;

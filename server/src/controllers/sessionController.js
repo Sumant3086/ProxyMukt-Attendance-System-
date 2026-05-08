@@ -422,11 +422,78 @@ export const updateVerificationSettings = async (req, res) => {
 };
 
 /**
- * Get session attendance summary
+ * Get session attendance summary (accessible to session participants)
+ */
+export const getSessionAttendancePublic = async (req, res) => {
+  try {
+    const session = await Session.findById(req.params.id).populate('class', 'name code students faculty');
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found',
+      });
+    }
+    
+    // Check if user has access to this session (student enrolled or faculty/admin)
+    const userRole = req.user.role;
+    const userId = req.user._id.toString();
+    
+    let hasAccess = false;
+    
+    if (userRole === 'ADMIN') {
+      hasAccess = true;
+    } else if (userRole === 'FACULTY') {
+      hasAccess = session.class.faculty.toString() === userId || session.faculty.toString() === userId;
+    } else if (userRole === 'STUDENT') {
+      hasAccess = session.class.students.some(studentId => studentId.toString() === userId);
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this session attendance',
+      });
+    }
+    
+    const attendance = await Attendance.find({ session: req.params.id })
+      .populate('student', 'name email studentId')
+      .sort('markedAt');
+    
+    // Calculate totals - use class students length if totalStudents is not set
+    const totalStudents = session.totalStudents || session.class?.students?.length || 0;
+    const presentCount = attendance.length;
+    const absentCount = Math.max(0, totalStudents - presentCount);
+    const percentage = totalStudents > 0 ? ((presentCount / totalStudents) * 100).toFixed(2) : '0.00';
+    
+    res.json({
+      success: true,
+      data: {
+        session,
+        attendance,
+        summary: {
+          total: totalStudents,
+          present: presentCount,
+          absent: absentCount,
+          percentage,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error in getSessionAttendancePublic:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * Get session attendance summary (Faculty/Admin only)
  */
 export const getSessionAttendance = async (req, res) => {
   try {
-    const session = await Session.findById(req.params.id);
+    const session = await Session.findById(req.params.id).populate('class', 'name code students');
     
     if (!session) {
       return res.status(404).json({
@@ -439,20 +506,27 @@ export const getSessionAttendance = async (req, res) => {
       .populate('student', 'name email studentId')
       .sort('markedAt');
     
+    // Calculate totals - use class students length if totalStudents is not set
+    const totalStudents = session.totalStudents || session.class?.students?.length || 0;
+    const presentCount = attendance.length;
+    const absentCount = Math.max(0, totalStudents - presentCount);
+    const percentage = totalStudents > 0 ? ((presentCount / totalStudents) * 100).toFixed(2) : '0.00';
+    
     res.json({
       success: true,
       data: {
         session,
         attendance,
         summary: {
-          total: session.totalStudents,
-          present: attendance.length,
-          absent: session.totalStudents - attendance.length,
-          percentage: ((attendance.length / session.totalStudents) * 100).toFixed(2),
+          total: totalStudents,
+          present: presentCount,
+          absent: absentCount,
+          percentage,
         },
       },
     });
   } catch (error) {
+    console.error('Error in getSessionAttendance:', error);
     res.status(500).json({
       success: false,
       message: error.message,

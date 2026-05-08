@@ -7,6 +7,7 @@ import QRDisplay from '../components/QRDisplay';
 import Loader from '../components/Loader';
 import axiosInstance from '../utils/axiosInstance';
 import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle, QrCode, Zap, Lock, MapPin, Pause, Play, Download, Send, List, Bell } from 'lucide-react';
+import { DEFAULT_WEBSOCKET_URL } from '../lib/constants';
 
 export default function StartSession() {
   const { id } = useParams();
@@ -20,6 +21,7 @@ export default function StartSession() {
   const [sessionDuration, setSessionDuration] = useState('0m');
   const [recentAttendance, setRecentAttendance] = useState([]);
   const [attendanceList, setAttendanceList] = useState([]);
+  const [attendanceListLoading, setAttendanceListLoading] = useState(false);
   const [showAttendanceList, setShowAttendanceList] = useState(false);
   const [verificationSettings, setVerificationSettings] = useState({
     qrCode: true,
@@ -33,12 +35,20 @@ export default function StartSession() {
     fetchSession();
     fetchAttendanceList();
     
+    // Set up periodic refresh of attendance list when session is live
+    let refreshInterval;
+    if (session?.status === 'LIVE') {
+      refreshInterval = setInterval(() => {
+        fetchAttendanceList();
+      }, 30000); // Refresh every 30 seconds
+    }
+    
     // Get auth data for WebSocket authentication
     const authData = JSON.parse(localStorage.getItem('auth-storage') || '{}');
     const userId = authData.state?.user?._id;
     const role = authData.state?.user?.role;
     
-    const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', {
+    const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || DEFAULT_WEBSOCKET_URL, {
       auth: {
         userId,
         role
@@ -47,12 +57,15 @@ export default function StartSession() {
     setSocket(newSocket);
     
     return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
       if (newSocket) {
         newSocket.emit('leave-session', id);
         newSocket.disconnect();
       }
     };
-  }, [id]);
+  }, [id, session?.status]);
   
   // Session duration timer
   useEffect(() => {
@@ -81,15 +94,22 @@ export default function StartSession() {
   
   useEffect(() => {
     if (socket && session?.status === 'LIVE') {
+      console.log('Joining session room:', id);
       socket.emit('join-session', id);
       
+      // Listen for session join confirmation
+      socket.on('joined-session', (data) => {
+        console.log('Successfully joined session room:', data);
+      });
+      
       socket.on('qr-update', (data) => {
+        console.log('QR update received:', data);
         setQrToken(data.qrToken);
       });
       
       // Listen for real-time attendance updates
       socket.on('attendance-marked', (data) => {
-        console.log('Attendance marked:', data);
+        console.log('Attendance marked event received:', data);
         
         // Update session count
         setSession(prev => ({
@@ -100,8 +120,8 @@ export default function StartSession() {
         // Add to recent attendance feed
         if (data.student) {
           const newEntry = {
-            studentName: data.student.name || 'Student',
-            studentId: data.student.studentId || data.studentId,
+            studentName: data.student.name || data.studentName || 'Student',
+            studentId: data.student.studentId || data.studentId || 'N/A',
             timestamp: new Date(),
             status: 'success'
           };
@@ -109,12 +129,13 @@ export default function StartSession() {
         }
         
         // Refresh full attendance list
+        console.log('Refreshing attendance list due to attendance-marked event');
         fetchAttendanceList();
       });
       
       // Listen for class attendance updates
       socket.on('class-attendance-update', (data) => {
-        console.log('Class attendance update:', data);
+        console.log('Class attendance update received:', data);
         // Refresh session data
         fetchSession();
         fetchAttendanceList();
@@ -136,6 +157,7 @@ export default function StartSession() {
       });
       
       return () => {
+        socket.off('joined-session');
         socket.off('qr-update');
         socket.off('attendance-marked');
         socket.off('class-attendance-update');
@@ -204,16 +226,23 @@ export default function StartSession() {
 
   const fetchAttendanceList = async () => {
     try {
-      const { data } = await axiosInstance.get(`/sessions/${id}/attendance`);
+      setAttendanceListLoading(true);
+      const { data } = await axiosInstance.get(`/sessions/${id}/attendance-public`);
       setAttendanceList(data.data.attendance || []);
     } catch (error) {
       console.error('Error fetching attendance list:', error);
+      console.error('Error details:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      // Set empty array on error to prevent infinite loading
+      setAttendanceList([]);
+    } finally {
+      setAttendanceListLoading(false);
     }
   };
 
   const handleDownloadAttendance = async () => {
     try {
-      const { data } = await axiosInstance.get(`/sessions/${id}/attendance`);
+      const { data } = await axiosInstance.get(`/sessions/${id}/attendance-public`);
       const attendance = data.data.attendance || [];
       
       // Create CSV content
@@ -535,7 +564,16 @@ export default function StartSession() {
                       </tr>
                     </thead>
                     <tbody>
-                      {attendanceList.length > 0 ? (
+                      {attendanceListLoading ? (
+                        <tr>
+                          <td colSpan="5" className="py-8 text-center text-gray-400">
+                            <div className="flex items-center justify-center space-x-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                              <span>Loading attendance records...</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : attendanceList.length > 0 ? (
                         attendanceList.map((record, index) => (
                           <tr key={record._id} className="border-b border-gray-800 hover:bg-gray-800/50">
                             <td className="py-3 px-4 text-gray-300">{index + 1}</td>

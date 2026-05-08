@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
 import { Camera, CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react';
-
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+import { FACE_API_MODEL_URL } from '../lib/constants';
 
 export default function FaceVerification({ onVerified, onFailed, autoStart = false }) {
   const videoRef = useRef(null);
@@ -29,8 +28,8 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
     setMessage('Loading face detection models...');
     try {
       await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+        faceapi.nets.tinyFaceDetector.loadFromUri(FACE_API_MODEL_URL),
+        faceapi.nets.faceLandmark68TinyNet.loadFromUri(FACE_API_MODEL_URL),
       ]);
       setModelsLoaded(true);
       setStatus('ready');

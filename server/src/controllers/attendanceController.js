@@ -127,20 +127,42 @@ export const checkNearbySession = async (req, res) => {
  */
 export const markAttendance = async (req, res) => {
   try {
-    const { qrToken, location, autoMarked } = req.body;
+    const { qrToken, location, autoMarked, deviceInfo } = req.body;
     
-    // Verify QR token
-    const payload = verifyQRToken(qrToken);
+    // CRITICAL: Handle different verification scenarios
+    let payload = null;
+    let session = null;
     
-    if (!payload) {
+    if (qrToken) {
+      // QR-based attendance (most common)
+      payload = verifyQRToken(qrToken);
+      
+      if (!payload) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired QR code',
+        });
+      }
+      
+      // Get session (optimized with lean query)
+      session = await Session.findById(payload.sid).populate('class').lean();
+    } else if (autoMarked && location) {
+      // Auto-attendance based on location only
+      // Find nearby live session for this student
+      const nearbySessionData = await findNearbySession(req.user._id, location);
+      if (!nearbySessionData) {
+        return res.status(404).json({
+          success: false,
+          message: 'No active session found in your location',
+        });
+      }
+      session = nearbySessionData;
+    } else {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired QR code',
+        message: 'Either QR token or location (for auto-attendance) is required',
       });
     }
-    
-    // Get session
-    const session = await Session.findById(payload.sid).populate('class');
     
     if (!session) {
       return res.status(404).json({
@@ -156,8 +178,8 @@ export const markAttendance = async (req, res) => {
       });
     }
     
-    // Check if student is enrolled
-    const classData = await Class.findById(session.class._id);
+    // Check if student is enrolled (optimized query)
+    const classData = await Class.findById(session.class._id).select('students').lean();
     const isEnrolled = classData.students.some(
       (id) => id.toString() === req.user._id.toString()
     );
@@ -169,11 +191,11 @@ export const markAttendance = async (req, res) => {
       });
     }
 
-    // Check for duplicate attendance
+    // Check for duplicate attendance (optimized query)
     const existingAttendance = await Attendance.findOne({
       session: session._id,
       student: req.user._id,
-    });
+    }).select('_id').lean();
     
     if (existingAttendance) {
       return res.status(400).json({
@@ -182,18 +204,61 @@ export const markAttendance = async (req, res) => {
       });
     }
     
-    // AUTO-ATTENDANCE: Skip all verification requirements
+    // CRITICAL: DEVICE-BASED PROXY DETECTION
+    const deviceFingerprint = deviceInfo?.fingerprint || generateDeviceFingerprint(req);
+    
+    const deviceProxyCheck = await Attendance.findOne({
+      session: session._id,
+      'deviceInfo.deviceFingerprint': deviceFingerprint,
+      student: { $ne: req.user._id } // Different student
+    }).populate('student', 'name studentId').lean();
+    
+    if (deviceProxyCheck) {
+      // BLOCK: Same device trying to mark attendance for different students
+      return res.status(403).json({
+        success: false,
+        message: 'Proxy attendance detected! This device has already been used to mark attendance for another student in this session.',
+        details: {
+          reason: 'DEVICE_PROXY_DETECTED',
+          previousStudent: deviceProxyCheck.student.name,
+          previousStudentId: deviceProxyCheck.student.studentId,
+          deviceId: deviceFingerprint.substring(0, 12) + '...',
+          action: 'BLOCKED'
+        },
+        errorType: 'PROXY_DETECTION'
+      });
+    }
+    
+    // VERIFICATION REQUIREMENTS CHECK
     const isAutoAttendance = autoMarked === true;
+    const requirements = session.verificationRequirements || {};
     
-    // GEOFENCING VERIFICATION
+    // Validate based on session requirements
+    if (!isAutoAttendance) {
+      // QR Code verification
+      if (requirements.qrCode && !qrToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'QR code verification is required for this session',
+        });
+      }
+      
+      // Location verification
+      if (requirements.locationVerification && (!location || !location.latitude || !location.longitude)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Location verification is required for this session',
+          requiresLocation: true,
+        });
+      }
+      
+      // Face verification is handled on frontend - backend trusts the sequential flow
+    }
+    
+    // LOCATION VALIDATION
     let locationVerification = { verified: true, reason: isAutoAttendance ? 'Auto-attendance - verification skipped' : 'Location not required' };
-    let spoofingDetection = { isSuspicious: false };
-    
-    // Check if location verification is required (skip for auto-attendance)
-    const requiresLocation = !isAutoAttendance && (session.verificationRequirements?.locationVerification || false);
     
     if (location && location.latitude && location.longitude) {
-      // Validate coordinates
       if (!validateCoordinates(location.latitude, location.longitude)) {
         return res.status(400).json({
           success: false,
@@ -201,26 +266,11 @@ export const markAttendance = async (req, res) => {
         });
       }
       
-      // Skip spoofing detection for auto-attendance
-      if (!isAutoAttendance) {
-        // Check for location spoofing
-        spoofingDetection = detectLocationSpoofing(location);
-        
-        if (spoofingDetection.recommendation === 'BLOCK') {
-          return res.status(403).json({
-            success: false,
-            message: 'Location verification failed: Suspicious location data detected',
-            details: spoofingDetection.warnings,
-          });
-        }
-      }
-      
-      // Verify geofence if session has location configured
+      // Geofence check (if session has location)
       if (session.location && session.location.latitude && session.location.longitude) {
         locationVerification = verifyGeofence(session.location, location);
         
-        // Only enforce geofence for non-auto attendance
-        if (!locationVerification.verified && requiresLocation && !isAutoAttendance) {
+        if (!locationVerification.verified && requirements.locationVerification && !isAutoAttendance) {
           return res.status(403).json({
             success: false,
             message: 'Location verification failed',
@@ -232,139 +282,18 @@ export const markAttendance = async (req, res) => {
           });
         }
       }
-    } else if (requiresLocation) {
-      // Location is required but not provided
-      return res.status(400).json({
-        success: false,
-        message: 'Location verification is required for this session',
-        requiresLocation: true,
-      });
     }
     
-    // DEVICE FINGERPRINTING & PROXY DETECTION
-    const deviceFingerprint = generateDeviceFingerprint(req);
+    // FAST ATTENDANCE CREATION
     const deviceDetails = parseUserAgent(req.headers['user-agent']);
     const ipAddress = req.ip || req.connection.remoteAddress;
     
-    // Skip proxy/VPN checks for auto-attendance
-    let proxyCheck = { isProxy: false, isVPN: false, isTor: false, riskScore: 0 };
-    let residentialProxyCheck = { isResidentialProxy: false, riskScore: 0 };
-    let ipReputation = { score: 0, isDatacenter: false, threatLevel: 'LOW' };
-    
-    if (!isAutoAttendance) {
-      // Check for proxy/VPN (async, don't block attendance) - WITH CIRCUIT BREAKER
-      try {
-        proxyCheck = await safeProxyCheck(ipAddress);
-      } catch (error) {
-        console.error('Proxy check failed:', error.message);
-      }
-      
-      // Detect residential proxy
-      try {
-        residentialProxyCheck = await detectResidentialProxy(ipAddress, req.user._id);
-      } catch (error) {
-        console.error('Residential proxy detection failed:', error.message);
-      }
-      
-      // Calculate IP reputation
-      try {
-        ipReputation = await calculateIPReputation(ipAddress);
-      } catch (error) {
-        console.error('IP reputation check failed:', error.message);
-      }
-    }
-    
-    // Get previous devices for this student
-    const previousAttendances = await Attendance.find({
-      student: req.user._id,
-    }).limit(10).select('deviceInfo');
-    
-    const suspiciousDevice = detectSuspiciousDevice(
-      { ...deviceDetails, deviceFingerprint, ...proxyCheck },
-      previousAttendances.map(a => a.deviceInfo)
-    );
-    
-    // Calculate total risk score (skip for auto-attendance)
-    let totalRiskScore = 0;
-    const riskFactors = [];
-    
-    if (!isAutoAttendance) {
-      totalRiskScore = Math.max(proxyCheck.riskScore, suspiciousDevice.riskScore);
-      
-      if (proxyCheck.isProxy) {
-        totalRiskScore += RISK_FACTOR_SCORES.PROXY_DETECTED;
-        riskFactors.push('PROXY_DETECTED');
-      }
-      if (proxyCheck.isVPN) {
-        totalRiskScore += RISK_FACTOR_SCORES.VPN_DETECTED;
-        riskFactors.push('VPN_DETECTED');
-      }
-      if (proxyCheck.isTor) {
-        totalRiskScore += RISK_FACTOR_SCORES.TOR_DETECTED;
-        riskFactors.push('TOR_DETECTED');
-      }
-      if (residentialProxyCheck.isResidentialProxy) {
-        totalRiskScore += RISK_FACTOR_SCORES.RESIDENTIAL_PROXY;
-        riskFactors.push('RESIDENTIAL_PROXY');
-      }
-      if (ipReputation.isDatacenter) {
-        totalRiskScore += RISK_FACTOR_SCORES.DATACENTER_IP;
-        riskFactors.push('DATACENTER_IP');
-      }
-      if (spoofingDetection.isSuspicious) {
-        totalRiskScore += RISK_FACTOR_SCORES.LOCATION_SPOOFING;
-        riskFactors.push('LOCATION_SPOOFING');
-      }
-      if (suspiciousDevice.isSuspicious) {
-        totalRiskScore += RISK_FACTOR_SCORES.SUSPICIOUS_DEVICE;
-        riskFactors.push('SUSPICIOUS_DEVICE');
-      }
-      
-      // SMART VALIDATION: Peer location validation
-      let peerValidation = { isPeerOutlier: false, riskScore: 0 };
-      if (location && location.latitude && location.longitude) {
-        try {
-          peerValidation = await validatePeerLocation(session._id, location);
-          if (peerValidation.isPeerOutlier) {
-            totalRiskScore += peerValidation.riskScore;
-            riskFactors.push('PEER_LOCATION_OUTLIER');
-            console.log(`⚠️ Peer validation: ${peerValidation.message}`);
-          }
-        } catch (error) {
-          console.error('Peer validation failed:', error.message);
-        }
-      }
-      
-      // SMART VALIDATION: Impossible travel detection
-      let travelDetection = { isImpossibleTravel: false, riskScore: 0 };
-      if (location && location.latitude && location.longitude) {
-        try {
-          travelDetection = await detectImpossibleTravel(
-            req.user._id,
-            location,
-            new Date()
-          );
-          if (travelDetection.isImpossibleTravel) {
-            totalRiskScore += travelDetection.riskScore;
-            riskFactors.push('IMPOSSIBLE_TRAVEL');
-            console.log(`⚠️ Impossible travel: ${travelDetection.message}`);
-          }
-        } catch (error) {
-          console.error('Travel detection failed:', error.message);
-        }
-      }
-      
-      // Cap risk score at 100
-      totalRiskScore = Math.min(totalRiskScore, 100);
-    }
-    
-    // Create attendance record with enhanced device data
     const attendance = await Attendance.create({
       session: session._id,
       student: req.user._id,
       class: session.class._id,
-      qrToken,
-      attendanceSource: isAutoAttendance ? 'AUTO' : 'QR',
+      qrToken: qrToken || null,
+      attendanceSource: isAutoAttendance ? 'AUTO' : qrToken ? 'QR' : 'MANUAL',
       deviceInfo: {
         userAgent: req.headers['user-agent'],
         ip: ipAddress,
@@ -372,10 +301,11 @@ export const markAttendance = async (req, res) => {
         browser: deviceDetails.browser,
         os: deviceDetails.os,
         platform: deviceDetails.platform,
-        isProxy: proxyCheck.isProxy,
-        isVPN: proxyCheck.isVPN,
-        isTor: proxyCheck.isTor,
-        riskScore: totalRiskScore,
+        // Initial values - will be updated by background task
+        isProxy: false,
+        isVPN: false,
+        isTor: false,
+        riskScore: 0,
       },
       location: location ? {
         latitude: location.latitude,
@@ -383,97 +313,76 @@ export const markAttendance = async (req, res) => {
         accuracy: location.accuracy,
         verified: locationVerification.verified,
         distance: locationVerification.distance,
-        suspicious: spoofingDetection.isSuspicious || suspiciousDevice.isSuspicious,
+        suspicious: false, // Will be updated by background task
       } : undefined,
     });
     
-    // Create alert if risk score exceeds threshold
-    if (totalRiskScore >= ALERT_CREATION_THRESHOLD) {
-      const severity = totalRiskScore >= 85 ? 'CRITICAL' : totalRiskScore >= 70 ? 'HIGH' : 'MEDIUM';
-      
-      const alert = await Alert.create({
-        student: req.user._id,
-        attendance: attendance._id,
-        session: session._id,
-        class: session.class._id,
-        riskScore: totalRiskScore,
-        riskFactors,
-        severity,
-        status: 'PENDING',
-        deviceInfo: {
-          ip: ipAddress,
-          userAgent: req.headers['user-agent'],
-          browser: deviceDetails.browser,
-          os: deviceDetails.os,
-          deviceFingerprint,
-        },
-        locationInfo: location ? {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          accuracy: location.accuracy,
-        } : undefined,
-      });
-      
-      // Create verification queue entry
-      await VerificationQueue.create({
-        alert: alert._id,
-        student: req.user._id,
-        attendance: attendance._id,
-        priority: Math.floor(totalRiskScore / 10), // Priority 7-10 for risk scores 70-100
-      });
-      
-      // Emit real-time alert to all admins
-      const populatedAlert = await Alert.findById(alert._id)
-        .populate('student', 'name email studentId')
-        .populate('session', 'name')
-        .populate('class', 'name');
-      
-      const io = getIO();
-      if (io) {
-        io.emit('new-alert', {
-          alert: populatedAlert,
-          timestamp: new Date(),
-        });
-      }
-    }
-    
-    // Log to audit trail
-    await createAuditLog(
-      req,
-      'ATTENDANCE_MARK',
-      'Attendance',
-      attendance._id,
-      {
-        sessionId: session._id,
-        classId: session.class._id,
-        locationVerified: locationVerification.verified,
-        deviceRiskScore: attendance.deviceInfo.riskScore,
-        suspiciousFlags: suspiciousDevice.flags,
-      }
+    // Update session attendance count
+    const updatedSession = await Session.findByIdAndUpdate(
+      session._id, 
+      { $inc: { attendanceCount: 1 } },
+      { new: true } // Return the updated document
     );
     
-    // Update session attendance count
-    session.attendanceCount += 1;
-    await session.save();
-    
-    // EMIT REAL-TIME WEBSOCKET UPDATE
+    // EMIT REAL-TIME WEBSOCKET UPDATE IMMEDIATELY
     emitAttendanceMarked(
       session._id.toString(),
       session.class._id.toString(),
       req.user._id.toString(),
       {
         studentName: req.user.name,
-        riskScore: totalRiskScore,
-        attendanceCount: session.attendanceCount,
-        totalStudents: session.totalStudents
+        riskScore: 0, // Initial value
+        attendanceCount: updatedSession.attendanceCount,
+        totalStudents: updatedSession.totalStudents
       }
     );
     
+    // BACKGROUND SECURITY ANALYSIS (Non-blocking)
+    if (!isAutoAttendance) {
+      setImmediate(async () => {
+        try {
+          await performBackgroundSecurityAnalysis(attendance._id, {
+            ipAddress,
+            location,
+            deviceInfo: deviceDetails,
+            deviceFingerprint,
+            userId: req.user._id,
+            sessionId: session._id,
+            classId: session.class._id
+          });
+        } catch (error) {
+          console.error('Background security analysis failed:', error);
+        }
+      });
+    }
+    
+    // Log to audit trail (async)
+    setImmediate(async () => {
+      try {
+        await createAuditLog(
+          req,
+          'ATTENDANCE_MARK',
+          'Attendance',
+          attendance._id,
+          {
+            sessionId: session._id,
+            classId: session.class._id,
+            locationVerified: locationVerification.verified,
+            deviceFingerprint: deviceFingerprint.substring(0, 12) + '...',
+            verificationMethod: isAutoAttendance ? 'AUTO' : qrToken ? 'QR' : 'MANUAL',
+          }
+        );
+      } catch (error) {
+        console.error('Audit log creation failed:', error);
+      }
+    });
+    
+    // FAST RESPONSE - Return immediately
     res.status(201).json({
       success: true,
       message: isAutoAttendance 
-        ? '✓ Attendance marked successfully! No verification needed for auto-attendance.' 
-        : '✓ Attendance marked successfully! Present for this session.',
+        ? '✅ Auto-attendance marked successfully!' 
+        : '✅ Attendance marked successfully!',
       data: { 
         attendance,
         locationVerification: {
@@ -481,21 +390,21 @@ export const markAttendance = async (req, res) => {
           distance: locationVerification.distance,
           message: locationVerification.reason,
         },
-        verificationStatus: isAutoAttendance ? {
-          autoAttendance: true,
-          message: 'Auto-attendance - all verifications skipped',
-        } : {
-          qrCode: true,
-          faceVerification: session.verificationRequirements?.faceVerification ? 'Required' : 'Optional',
-          locationVerification: session.verificationRequirements?.locationVerification ? 'Verified' : 'Optional',
+        verificationStatus: {
+          qrCode: qrToken ? 'Verified' : 'Not Required',
+          faceVerification: requirements.faceVerification ? 'Required' : 'Not Required',
+          locationVerification: requirements.locationVerification ? 'Verified' : 'Not Required',
+          autoAttendance: isAutoAttendance,
         },
         studentName: req.user.name,
         sessionTitle: session.title,
         className: session.class.name,
         isAutoAttendance,
+        processingTime: 'Optimized for performance',
       },
     });
   } catch (error) {
+    console.error('Attendance marking error:', error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -665,7 +574,7 @@ export const getPeerCluster = async (req, res) => {
     }
 
     const { calculatePeerCluster } = await import('../utils/smartValidation.js');
-    const clusterData = await calculatePeerCluster(sessionId);
+    const clusterData = calculatePeerCluster(sessionId);
 
     res.json({
       success: true,
@@ -736,5 +645,193 @@ export const getAnalytics = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+// Helper function to find nearby session for auto-attendance
+const findNearbySession = async (studentId, location) => {
+  try {
+    // Find all live sessions with geofencing enabled
+    const liveSessions = await Session.find({
+      status: 'LIVE',
+      'location.geofencingEnabled': true,
+      'location.latitude': { $exists: true },
+      'location.longitude': { $exists: true }
+    }).populate('class', 'name code students').lean();
+    
+    if (liveSessions.length === 0) {
+      return null;
+    }
+    
+    // Find nearest session within range where student is enrolled
+    for (const session of liveSessions) {
+      // Check if student is enrolled
+      const isEnrolled = session.class.students.some(
+        id => id.toString() === studentId.toString()
+      );
+      
+      if (!isEnrolled) continue;
+      
+      const verification = verifyGeofence(session.location, location);
+      
+      if (verification.verified) {
+        return session;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error finding nearby session:', error);
+    return null;
+  }
+};
+
+// Background security analysis function (non-blocking)
+const performBackgroundSecurityAnalysis = async (attendanceId, analysisData) => {
+  try {
+    const { ipAddress, location, deviceInfo, deviceFingerprint, userId, sessionId, classId } = analysisData;
+    
+    // Perform all heavy security checks
+    let proxyCheck = { isProxy: false, isVPN: false, isTor: false, riskScore: 0 };
+    let residentialProxyCheck = { isResidentialProxy: false, riskScore: 0 };
+    let ipReputation = { score: 0, isDatacenter: false, threatLevel: 'LOW' };
+    let spoofingDetection = { isSuspicious: false };
+    
+    // Parallel execution of security checks
+    const securityChecks = await Promise.allSettled([
+      safeProxyCheck(ipAddress),
+      detectResidentialProxy(ipAddress, userId),
+      calculateIPReputation(ipAddress),
+      location ? detectLocationSpoofing(location) : Promise.resolve({ isSuspicious: false }),
+      location ? validatePeerLocation(sessionId, location) : Promise.resolve({ isPeerOutlier: false }),
+      location ? detectImpossibleTravel(userId, location, new Date()) : Promise.resolve({ isImpossibleTravel: false })
+    ]);
+    
+    // Process results
+    if (securityChecks[0].status === 'fulfilled') proxyCheck = securityChecks[0].value;
+    if (securityChecks[1].status === 'fulfilled') residentialProxyCheck = securityChecks[1].value;
+    if (securityChecks[2].status === 'fulfilled') ipReputation = securityChecks[2].value;
+    if (securityChecks[3].status === 'fulfilled') spoofingDetection = securityChecks[3].value;
+    
+    // Get previous devices for suspicious device detection
+    const previousAttendances = await Attendance.find({
+      student: userId,
+    }).limit(10).select('deviceInfo').lean();
+    
+    const suspiciousDevice = detectSuspiciousDevice(
+      { ...deviceInfo, deviceFingerprint, ...proxyCheck },
+      previousAttendances.map(a => a.deviceInfo)
+    );
+    
+    // Calculate total risk score
+    let totalRiskScore = Math.max(proxyCheck.riskScore, suspiciousDevice.riskScore);
+    const riskFactors = [];
+    
+    if (proxyCheck.isProxy) {
+      totalRiskScore += RISK_FACTOR_SCORES.PROXY_DETECTED;
+      riskFactors.push('PROXY_DETECTED');
+    }
+    if (proxyCheck.isVPN) {
+      totalRiskScore += RISK_FACTOR_SCORES.VPN_DETECTED;
+      riskFactors.push('VPN_DETECTED');
+    }
+    if (proxyCheck.isTor) {
+      totalRiskScore += RISK_FACTOR_SCORES.TOR_DETECTED;
+      riskFactors.push('TOR_DETECTED');
+    }
+    if (residentialProxyCheck.isResidentialProxy) {
+      totalRiskScore += RISK_FACTOR_SCORES.RESIDENTIAL_PROXY;
+      riskFactors.push('RESIDENTIAL_PROXY');
+    }
+    if (ipReputation.isDatacenter) {
+      totalRiskScore += RISK_FACTOR_SCORES.DATACENTER_IP;
+      riskFactors.push('DATACENTER_IP');
+    }
+    if (spoofingDetection.isSuspicious) {
+      totalRiskScore += RISK_FACTOR_SCORES.LOCATION_SPOOFING;
+      riskFactors.push('LOCATION_SPOOFING');
+    }
+    if (suspiciousDevice.isSuspicious) {
+      totalRiskScore += RISK_FACTOR_SCORES.SUSPICIOUS_DEVICE;
+      riskFactors.push('SUSPICIOUS_DEVICE');
+    }
+    
+    // Handle peer validation and travel detection results
+    if (securityChecks[4].status === 'fulfilled' && securityChecks[4].value.isPeerOutlier) {
+      totalRiskScore += securityChecks[4].value.riskScore;
+      riskFactors.push('PEER_LOCATION_OUTLIER');
+    }
+    
+    if (securityChecks[5].status === 'fulfilled' && securityChecks[5].value.isImpossibleTravel) {
+      totalRiskScore += securityChecks[5].value.riskScore;
+      riskFactors.push('IMPOSSIBLE_TRAVEL');
+    }
+    
+    totalRiskScore = Math.min(totalRiskScore, 100);
+    
+    // Update attendance record with security analysis results
+    await Attendance.findByIdAndUpdate(attendanceId, {
+      $set: {
+        'deviceInfo.isProxy': proxyCheck.isProxy,
+        'deviceInfo.isVPN': proxyCheck.isVPN,
+        'deviceInfo.isTor': proxyCheck.isTor,
+        'deviceInfo.riskScore': totalRiskScore,
+        'location.suspicious': spoofingDetection.isSuspicious || suspiciousDevice.isSuspicious,
+      }
+    });
+    
+    // Create alert if risk score exceeds threshold
+    if (totalRiskScore >= ALERT_CREATION_THRESHOLD) {
+      const severity = totalRiskScore >= 85 ? 'CRITICAL' : totalRiskScore >= 70 ? 'HIGH' : 'MEDIUM';
+      
+      const alert = await Alert.create({
+        student: userId,
+        attendance: attendanceId,
+        session: sessionId,
+        class: classId,
+        riskScore: totalRiskScore,
+        riskFactors,
+        severity,
+        status: 'PENDING',
+        deviceInfo: {
+          ip: ipAddress,
+          userAgent: deviceInfo.userAgent,
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+          deviceFingerprint,
+        },
+        locationInfo: location ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy,
+        } : undefined,
+      });
+      
+      // Create verification queue entry
+      await VerificationQueue.create({
+        alert: alert._id,
+        student: userId,
+        attendance: attendanceId,
+        priority: Math.floor(totalRiskScore / 10),
+      });
+      
+      // Emit real-time alert to all admins
+      const populatedAlert = await Alert.findById(alert._id)
+        .populate('student', 'name email studentId')
+        .populate('session', 'name')
+        .populate('class', 'name');
+      
+      const io = getIO();
+      if (io) {
+        io.emit('new-alert', {
+          alert: populatedAlert,
+          timestamp: new Date(),
+        });
+      }
+    }
+    
+    console.log(`✅ Background security analysis completed for attendance ${attendanceId} - Risk Score: ${totalRiskScore}`);
+    
+  } catch (error) {
+    console.error('Background security analysis failed:', error);
   }
 };

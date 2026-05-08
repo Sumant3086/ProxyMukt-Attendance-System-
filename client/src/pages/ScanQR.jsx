@@ -4,30 +4,138 @@ import { io } from 'socket.io-client';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import axiosInstance from '../utils/axiosInstance';
-import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle, ShieldCheck, Smartphone, Monitor } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { getDeviceInfo } from '../utils/deviceFingerprint';
 import FaceVerification from '../components/FaceVerification';
 import jsQR from 'jsqr';
+import { 
+  VERIFICATION_STEP_DELAY, 
+  SUCCESS_MESSAGE_DELAY, 
+  REDIRECT_DELAY, 
+  QR_SCAN_INTERVAL, 
+  LOCATION_TIMEOUT, 
+  WEBSOCKET_RECONNECT_DELAY,
+  DEFAULT_WEBSOCKET_URL
+} from '../lib/constants';
 
 export default function ScanQR() {
   const navigate = useNavigate();
   const [socket, setSocket] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [scanning, setScanning] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [stream, setStream] = useState(null);
   const [location, setLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('checking');
   const [locationError, setLocationError] = useState('');
-  const [faceVerified, setFaceVerified] = useState(false);
-  const [showFaceVerification, setShowFaceVerification] = useState(false);
-  const [pendingQrToken, setPendingQrToken] = useState(null);
-  const scanIntervalRef = useRef(null);
-  const [attendanceMarked, setAttendanceMarked] = useState(false); // Prevent infinite loop
+  const [attendanceMarked, setAttendanceMarked] = useState(false);
   const [deviceFingerprint, setDeviceFingerprint] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const scanIntervalRef = useRef(null);
   
+  // Sequential Verification State
+  const [sessionRequirements, setSessionRequirements] = useState(null);
+  const [verificationSteps, setVerificationSteps] = useState([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState([]);
+  const [verificationResults, setVerificationResults] = useState({
+    qrCode: null,
+    faceVerification: null,
+    locationVerification: null
+  });
+  
+  // Step-specific states
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
+  const [showLocationVerification, setShowLocationVerification] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  
+  // Initialize verification flow based on session requirements
+  const initializeVerificationFlow = (requirements) => {
+    const steps = [];
+    
+    if (requirements.qrCode) {
+      steps.push({ type: 'qrCode', name: 'QR Code Scan', icon: '📱' });
+    }
+    if (requirements.faceVerification) {
+      steps.push({ type: 'faceVerification', name: 'Face Liveness Check', icon: '👤' });
+    }
+    if (requirements.locationVerification) {
+      steps.push({ type: 'locationVerification', name: 'Location Verification', icon: '📍' });
+    }
+    
+    setVerificationSteps(steps);
+    setCurrentStep(0);
+    setCompletedSteps([]);
+    
+    // Start first verification step
+    if (steps.length > 0) {
+      startVerificationStep(steps[0].type, 0);
+    }
+  };
+  
+  // Start specific verification step
+  const startVerificationStep = (stepType, stepIndex = currentStep) => {
+    const step = verificationSteps[stepIndex];
+    setMessage(`${step?.icon} Step ${stepIndex + 1} of ${verificationSteps.length}: ${step?.name}`);
+    setMessageType('info');
+    
+    switch (stepType) {
+      case 'qrCode':
+        setShowQRScanner(true);
+        setShowFaceVerification(false);
+        setShowLocationVerification(false);
+        break;
+      case 'faceVerification':
+        setShowQRScanner(false);
+        setShowFaceVerification(true);
+        setShowLocationVerification(false);
+        break;
+      case 'locationVerification':
+        setShowQRScanner(false);
+        setShowFaceVerification(false);
+        setShowLocationVerification(true);
+        startLocationVerification();
+        break;
+    }
+  };
+  
+  // Complete current step and move to next
+  const completeVerificationStep = (stepType, result) => {
+    const updatedResults = { ...verificationResults, [stepType]: result };
+    setVerificationResults(updatedResults);
+    
+    const updatedCompleted = [...completedSteps, stepType];
+    setCompletedSteps(updatedCompleted);
+    
+    const currentStepInfo = verificationSteps[currentStep];
+    setMessage(`✅ ${currentStepInfo?.name || stepType} completed successfully!`);
+    setMessageType('success');
+    
+    // Close current verification UI
+    setShowQRScanner(false);
+    setShowFaceVerification(false);
+    setShowLocationVerification(false);
+    
+    // CRITICAL FIX: Check if this was the last step
+    const nextStepIndex = currentStep + 1;
+    if (nextStepIndex < verificationSteps.length) {
+      // More steps remaining
+      setTimeout(() => {
+        setCurrentStep(nextStepIndex);
+        startVerificationStep(verificationSteps[nextStepIndex].type, nextStepIndex);
+      }, VERIFICATION_STEP_DELAY);
+    } else {
+      // All steps completed - mark attendance
+      setMessage('🎉 All verifications complete! Marking attendance...');
+      setTimeout(() => {
+        markAttendanceWithResults(updatedResults);
+      }, VERIFICATION_STEP_DELAY);
+    }
+  };
+  
+  // Camera functions
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -38,7 +146,7 @@ export default function ScanQR() {
         videoRef.current.srcObject = mediaStream;
         setStream(mediaStream);
         setScanning(true);
-        setMessage('Scanning for QR code...');
+        setMessage('📱 Scanning for QR code...');
         setMessageType('info');
         startQRScanning();
       }
@@ -63,7 +171,7 @@ export default function ScanQR() {
   const startQRScanning = () => {
     scanIntervalRef.current = setInterval(() => {
       scanQRCode();
-    }, 500); // Scan every 500ms
+    }, QR_SCAN_INTERVAL);
   };
   
   const scanQRCode = () => {
@@ -83,86 +191,85 @@ export default function ScanQR() {
         inversionAttempts: 'dontInvert',
       });
       
-      if (code && code.data && !pendingQrToken) {
-        // QR code detected! Stop scanning
+      if (code && code.data) {
         stopCamera();
-        setPendingQrToken(code.data);
-        
-        // Fetch session requirements to determine next steps
-        fetchSessionRequirements(code.data);
+        handleQRDetected(code.data);
       }
     }
   };
-
-  const fetchSessionRequirements = async (qrToken) => {
+  
+  // Handle QR code detection
+  const handleQRDetected = async (qrToken) => {
     try {
       setMessage('✅ QR Code detected! Checking session requirements...');
       setMessageType('success');
       
-      // Decode QR to get session ID
+      // Verify QR token and get session requirements
       const [encodedPayload] = qrToken.split('.');
       const payloadString = atob(encodedPayload);
       const payload = JSON.parse(payloadString);
       
-      // Get session details
       const { data } = await axiosInstance.get(`/sessions/${payload.sid}`);
       const session = data.data.session;
       const requirements = session.verificationRequirements;
       
-      console.log('📋 Session Requirements:', requirements);
+      setSessionRequirements(requirements);
       
-      // Check what's required
-      if (requirements?.faceVerification) {
-        setMessage('✅ QR verified! Face liveness verification required...');
-        setShowFaceVerification(true);
+      // CRITICAL FIX: Check if QR is the ONLY requirement
+      const hasOnlyQR = requirements.qrCode && !requirements.faceVerification && !requirements.locationVerification;
+      
+      if (hasOnlyQR) {
+        // QR only - mark attendance immediately
+        setMessage('✅ QR verified! Only QR required - marking attendance...');
+        setTimeout(() => {
+          markAttendanceWithResults({ qrCode: { token: qrToken, verified: true } });
+        }, REDIRECT_DELAY);
       } else {
-        // No face verification required, proceed directly to mark attendance
-        setMessage('✅ QR verified! All requirements satisfied. Marking attendance...');
-        await markAttendance(qrToken);
+        // Multi-step verification required
+        initializeVerificationFlow(requirements);
+        completeVerificationStep('qrCode', { token: qrToken, verified: true });
       }
+      
     } catch (error) {
-      console.error('Error fetching session requirements:', error);
-      setMessage('⚠️ Error checking requirements. Proceeding with attendance marking...');
-      setMessageType('info');
-      await markAttendance(qrToken);
+      setMessage('❌ Error verifying QR code. Please try again.');
+      setMessageType('error');
+      setShowQRScanner(true); // Allow retry
     }
   };
-
-  const handleFaceVerified = async (result) => {
-    // Face liveness verified, proceed to mark attendance
-    setFaceVerified(true);
-    setShowFaceVerification(false);
-    
-    if (result?.bypassed) {
-      setMessage('⚠️ Face verification was skipped by faculty settings. Marking attendance...');
-    } else if (result?.note) {
-      setMessage('✅ Live face detected! All verifications complete. Marking attendance...');
-    } else {
-      setMessage('✅ Face liveness confirmed! All requirements satisfied. Marking attendance...');
-    }
-    
-    setMessageType('success');
-    if (pendingQrToken) {
-      await markAttendance(pendingQrToken);
-    }
+  
+  // Handle face verification completion
+  const handleFaceVerified = (result) => {
+    completeVerificationStep('faceVerification', { verified: true, result });
   };
-
-  const handleFaceFailed = async () => {
-    // Face verification failed - block attendance if required
-    setShowFaceVerification(false);
-    setMessage('❌ Face liveness verification failed. Please ensure you are looking at the camera and try again.');
+  
+  // Handle face verification failure
+  const handleFaceFailed = () => {
+    setMessage('❌ Face liveness verification failed. Please try again.');
     setMessageType('error');
-    setPendingQrToken(null);
-    setFaceVerified(false);
-    setAttendanceMarked(false);
-    
-    // Allow retry after 3 seconds
+    // Reset to allow retry
     setTimeout(() => {
-      setMessage('Ready to scan QR code again. Click "Start Camera" to retry.');
-      setMessageType('info');
-    }, 3000);
+      setShowFaceVerification(true);
+    }, SUCCESS_MESSAGE_DELAY);
   };
-
+  
+  // Start location verification
+  const startLocationVerification = async () => {
+    try {
+      setMessage('📍 Getting your location...');
+      const locationData = await getLocation();
+      completeVerificationStep('locationVerification', { verified: true, location: locationData });
+    } catch (error) {
+      setMessage('❌ Location verification failed. Please enable location access.');
+      setMessageType('error');
+      // Allow retry
+      setTimeout(() => {
+        setShowLocationVerification(true);
+        startLocationVerification();
+      }, SUCCESS_MESSAGE_DELAY);
+    }
+  };
+  
+  // Get location function
   const getLocation = () => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -209,47 +316,37 @@ export default function ScanQR() {
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: LOCATION_TIMEOUT,
           maximumAge: 0,
         }
       );
     });
   };
-
-  const markAttendance = async (qrToken) => {
-    if (attendanceMarked) return; // Prevent duplicate submissions
+  
+  // Mark attendance with all verification results
+  const markAttendanceWithResults = async (results) => {
+    if (attendanceMarked || isProcessing) return;
     
     try {
-      setAttendanceMarked(true); // Set flag immediately to prevent duplicates
+      setIsProcessing(true);
+      setAttendanceMarked(true);
       
-      setMessage('Getting your location...');
+      setMessage('⚡ All verifications complete! Marking attendance...');
       setMessageType('info');
-      
-      // Get current location
-      let locationData = null;
-      try {
-        locationData = await getLocation();
-      } catch (error) {
-        // Try to mark attendance without location (backend will decide if it's required)
-        console.warn('Location not available:', error);
-      }
-      
-      setMessage('Collecting device information...');
       
       // Get device information
       const deviceInfo = getDeviceInfo();
-      console.log('📱 Device Fingerprint:', deviceInfo); // Log for visibility
       
-      setMessage('Marking attendance...');
-      
+      const startTime = Date.now();
       const { data } = await axiosInstance.post('/attendance/mark', {
-        qrToken,
-        location: locationData,
-        deviceInfo,
+        qrToken: results.qrCode?.token,
+        location: results.locationVerification?.location,
+        deviceInfo: deviceInfo,
       });
+      const processingTime = Date.now() - startTime;
       
       // Show detailed success message
-      const successMsg = `✅ ATTENDANCE MARKED SUCCESSFULLY!\n\n📚 Session: ${data.data.sessionTitle}\n🏫 Class: ${data.data.className}\n👤 Student: ${data.data.studentName}`;
+      const successMsg = `🎉 ATTENDANCE MARKED SUCCESSFULLY!\n\n📚 Session: ${data.data.sessionTitle}\n🏫 Class: ${data.data.className}\n👤 Student: ${data.data.studentName}\n⚡ Processing Time: ${processingTime}ms`;
       setMessage(successMsg);
       setMessageType('success');
       
@@ -259,28 +356,28 @@ export default function ScanQR() {
           setMessage(
             `${successMsg}\n\n📍 Location: ${data.data.locationVerification.distance}m from session location`
           );
-        }, 1000);
+        }, REDIRECT_DELAY);
       }
       
-      stopCamera();
-      
-      // Show success message for 3 seconds then redirect
+      // Redirect to dashboard
       setTimeout(() => {
         setMessage('✅ Redirecting to dashboard...');
         setTimeout(() => {
           navigate('/student', { state: { refresh: true, attendanceMarked: true } });
-        }, 1000);
-      }, 3000);
+        }, REDIRECT_DELAY);
+      }, SUCCESS_MESSAGE_DELAY);
       
     } catch (error) {
       const errorData = error.response?.data;
       
-      // Reset flag on error to allow retry
+      // Reset flags on error to allow retry
       setAttendanceMarked(false);
-      setPendingQrToken(null);
-      setFaceVerified(false);
+      setIsProcessing(false);
       
-      if (errorData?.requiresLocation) {
+      // Handle specific proxy detection error
+      if (errorData?.errorType === 'PROXY_DETECTION') {
+        setMessage(`🚫 PROXY ATTENDANCE BLOCKED!\n\n${errorData.message}\n\n📱 Device: ${errorData.details.deviceId}\n👤 Previous Student: ${errorData.details.previousStudent} (${errorData.details.previousStudentId})\n\n⚠️ Each device can only mark attendance for ONE student per session.`);
+      } else if (errorData?.requiresLocation) {
         setMessage('❌ Location verification is required for this session. Please enable location access and try again.');
       } else if (errorData?.details) {
         setMessage(`❌ ${errorData.message}: ${errorData.details.reason || JSON.stringify(errorData.details)}`);
@@ -289,7 +386,19 @@ export default function ScanQR() {
       }
       
       setMessageType('error');
+    } finally {
+      setIsProcessing(false);
     }
+  };
+  
+  // Initialize verification flow on component mount
+  const startVerificationFlow = () => {
+    setMessage('🎯 Ready to start attendance verification!');
+    setMessageType('info');
+    
+    // Start with QR scanner by default
+    // Session requirements will be determined after QR scan
+    setShowQRScanner(true);
   };
   
   useEffect(() => {
@@ -301,7 +410,6 @@ export default function ScanQR() {
     // Collect device fingerprint on mount
     const deviceInfo = getDeviceInfo();
     setDeviceFingerprint(deviceInfo);
-    console.log('📱 Device Fingerprint Collected:', deviceInfo);
     
     // Setup WebSocket for real-time updates
     const authData = JSON.parse(localStorage.getItem('auth-storage') || '{}');
@@ -309,7 +417,7 @@ export default function ScanQR() {
     const role = authData.state?.user?.role;
     
     if (userId && role) {
-      const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', {
+      const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || DEFAULT_WEBSOCKET_URL, {
         auth: { userId, role }
       });
       
@@ -317,12 +425,11 @@ export default function ScanQR() {
       
       // Listen for attendance confirmation
       newSocket.on('attendance-confirmed', (data) => {
-        console.log('✅ Attendance confirmed via WebSocket:', data);
         if (!attendanceMarked) {
           setMessage('✅ Attendance confirmed! Redirecting to dashboard...');
           setMessageType('success');
           setAttendanceMarked(true);
-          setTimeout(() => navigate('/student', { state: { refresh: true, attendanceMarked: true } }), 2000);
+          setTimeout(() => navigate('/student', { state: { refresh: true, attendanceMarked: true } }), WEBSOCKET_RECONNECT_DELAY);
         }
       });
       
@@ -344,244 +451,256 @@ export default function ScanQR() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="max-w-2xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Scan QR Code
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Sequential Attendance Verification
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Mark your attendance by scanning the QR code</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">Complete all required verification steps</p>
             </div>
             
-            {/* Security Features Info */}
-            <div className="card-elevated p-6 mb-6">
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-                  <ShieldCheck className="text-white" size={24} />
+            {/* Verification Progress - Mobile Responsive */}
+            {verificationSteps.length > 0 && (
+              <div className="card-elevated p-4 sm:p-6 mb-6">
+                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4">
+                  Verification Progress
+                </h3>
+                {/* Mobile: Vertical Progress */}
+                <div className="block sm:hidden space-y-3">
+                  {verificationSteps.map((step, index) => (
+                    <div key={step.type} className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                        completedSteps.includes(step.type)
+                          ? 'bg-green-500 text-white'
+                          : index === currentStep
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-300 text-gray-600'
+                      }`}>
+                        {completedSteps.includes(step.type) ? '✓' : index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <span className={`text-sm font-medium ${
+                          completedSteps.includes(step.type)
+                            ? 'text-green-600'
+                            : index === currentStep
+                            ? 'text-blue-600'
+                            : 'text-gray-500'
+                        }`}>
+                          {step.icon} {step.name}
+                        </span>
+                        {index === currentStep && (
+                          <div className="text-xs text-blue-500 mt-1">Current Step</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-3">
-                    🔒 Multi-Layer Security Active
-                  </h3>
-                  <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                    <div>
-                      <div className="font-semibold text-indigo-600 dark:text-indigo-400 mb-1">Faculty-Controlled Verification:</div>
-                      <ul className="space-y-1 ml-4">
-                        <li>✓ QR Code scanning (always required)</li>
-                        <li>✓ Face liveness detection (if enabled by faculty)</li>
-                        <li>✓ GPS location verification (if enabled by faculty)</li>
-                      </ul>
+                
+                {/* Desktop: Horizontal Progress */}
+                <div className="hidden sm:flex items-center justify-center space-x-2 lg:space-x-4">
+                  {verificationSteps.map((step, index) => (
+                    <div key={step.type} className="flex items-center">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                          completedSteps.includes(step.type)
+                            ? 'bg-green-500 text-white'
+                            : index === currentStep
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-300 text-gray-600'
+                        }`}>
+                          {completedSteps.includes(step.type) ? '✓' : index + 1}
+                        </div>
+                        <span className={`mt-2 text-xs text-center max-w-20 ${
+                          completedSteps.includes(step.type)
+                            ? 'text-green-600 font-semibold'
+                            : index === currentStep
+                            ? 'text-blue-600 font-semibold'
+                            : 'text-gray-500'
+                        }`}>
+                          {step.name}
+                        </span>
+                      </div>
+                      {index < verificationSteps.length - 1 && (
+                        <div className="mx-2 lg:mx-4 w-6 lg:w-8 h-0.5 bg-gray-300"></div>
+                      )}
                     </div>
-                    <div>
-                      <div className="font-semibold text-purple-600 dark:text-purple-400 mb-1">Background Security Checks:</div>
-                      <ul className="space-y-1 ml-4">
-                        <li>• Device fingerprinting (tracks your device)</li>
-                        <li>• Proxy/VPN detection (prevents spoofing)</li>
-                        <li>• IP reputation analysis (datacenter detection)</li>
-                        <li>• Impossible travel detection (location consistency)</li>
-                      </ul>
-                    </div>
-                  </div>
-                  <div className="mt-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-                    <p className="text-xs text-green-800 dark:text-green-400">
-                      <strong>✓ Smart Flow:</strong> Complete required verifications (QR → Face → Location) in sequence. Background security checks run automatically without blocking your attendance.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Device Fingerprint Info */}
-            {deviceFingerprint && (
-              <div className="mb-6 p-5 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl shadow-soft">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
-                    <Smartphone className="text-white" size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-green-900 dark:text-green-300 mb-3 flex items-center gap-2">
-                      Device Information Collected
-                      <CheckCircle size={16} className="text-green-600 dark:text-green-400" />
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3 text-xs text-green-800 dark:text-green-400">
-                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-                        <span className="font-bold block mb-1">Browser:</span> 
-                        {deviceFingerprint.userAgent.includes('Chrome') ? 'Chrome' : deviceFingerprint.userAgent.includes('Firefox') ? 'Firefox' : deviceFingerprint.userAgent.includes('Safari') ? 'Safari' : 'Other'}
-                      </div>
-                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-                        <span className="font-bold block mb-1">Platform:</span> 
-                        {deviceFingerprint.platform}
-                      </div>
-                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-                        <span className="font-bold block mb-1">Screen:</span> 
-                        {deviceFingerprint.screenResolution}
-                      </div>
-                      <div className="p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-                        <span className="font-bold block mb-1">Timezone:</span> 
-                        {deviceFingerprint.timezone}
-                      </div>
-                      <div className="col-span-2 p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
-                        <span className="font-bold block mb-1">Device ID:</span> 
-                        <code className="text-[10px] bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded">
-                          {deviceFingerprint.fingerprint.substring(0, 24)}...
-                        </code>
-                      </div>
-                    </div>
-                    <p className="text-xs text-green-700 dark:text-green-500 mt-3 italic p-2 bg-white/30 dark:bg-gray-800/30 rounded">
-                      This device signature helps track attendance patterns and detect suspicious activity. Note: This is not biometric data - it's technical device information only.
-                    </p>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
             
-            {/* Location Status */}
-            <div className={`mb-4 p-4 rounded-lg flex items-center space-x-2 ${
-              locationStatus === 'granted'
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
-                : locationStatus === 'denied'
-                ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
-                : locationStatus === 'checking'
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
-                : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
-            }`}>
-              <MapPin size={20} />
-              <div className="flex-1">
-                <p className="font-medium">
-                  {locationStatus === 'granted' && 'Location Access Granted'}
-                  {locationStatus === 'denied' && 'Location Access Denied'}
-                  {locationStatus === 'checking' && 'Checking Location...'}
-                  {locationStatus === 'unavailable' && 'Location Unavailable'}
-                </p>
-                {location && locationStatus === 'granted' && (
-                  <p className="text-sm mt-1">
-                    Accuracy: ±{Math.round(location.accuracy)}m
-                  </p>
-                )}
-                {locationError && (
-                  <p className="text-sm mt-1">{locationError}</p>
-                )}
-              </div>
-              {locationStatus === 'denied' && (
-                <button
-                  onClick={getLocation}
-                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                >
-                  Retry
-                </button>
-              )}
-            </div>
-
+            {/* Status Message - Mobile Responsive */}
             {message && (
-              <div className={`mb-6 p-4 rounded-lg flex items-center space-x-2 ${
+              <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg ${
                 messageType === 'success'
                   ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                   : messageType === 'info'
                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
                   : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
               }`}>
-                {messageType === 'success' ? <CheckCircle size={20} /> : messageType === 'info' ? <AlertTriangle size={20} /> : <XCircle size={20} />}
-                <span>{message}</span>
+                <div className="flex items-start space-x-2">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {messageType === 'success' ? <CheckCircle size={18} /> : messageType === 'info' ? <AlertTriangle size={18} /> : <XCircle size={18} />}
+                  </div>
+                  <span className="whitespace-pre-line text-sm sm:text-base leading-relaxed">{message}</span>
+                </div>
               </div>
             )}
             
-            <div className="card-elevated p-6">
-              {/* Face Verification Panel (shown when required) */}
-              {showFaceVerification && (
-                <div className="mb-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                      <ShieldCheck size={20} className="text-white" />
-                    </div>
-                    <div>
-                      <h2 className="font-bold text-lg text-gray-900 dark:text-white">Step 2: Face Liveness Detection</h2>
-                      <span className="text-xs badge badge-warning">Required by faculty</span>
-                    </div>
+            {/* QR Scanner - Mobile Optimized */}
+            {showQRScanner && (
+              <div className="card-elevated p-4 sm:p-6 mb-4 sm:mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                    <Camera size={16} className="sm:w-5 sm:h-5 text-white" />
                   </div>
-                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
-                    <p className="text-sm text-purple-800 dark:text-purple-400">
-                      👤 Please look at the camera and move your head slightly to confirm you're a real person.
-                    </p>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-bold text-base sm:text-lg text-gray-900 dark:text-white truncate">QR Code Scanner</h2>
+                    <span className="text-xs badge badge-info">Step {currentStep + 1} of {verificationSteps.length}</span>
                   </div>
+                </div>
+                
+                {/* Mobile-optimized camera view */}
+                <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden mb-4 relative touch-none">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                    style={{ transform: 'scaleX(-1)' }} // Mirror for better UX
+                  />
+                  <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-0" />
+                  
+                  {!scanning && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                      <div className="text-center px-4">
+                        <Camera size={40} className="sm:w-12 sm:h-12 text-white mx-auto mb-4" />
+                        <p className="text-white text-base sm:text-lg font-medium">Camera not started</p>
+                        <p className="text-gray-300 text-sm mt-2">Tap "Start Camera" to scan QR code</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {scanning && (
+                    <div className="absolute inset-0 pointer-events-none">
+                      {/* Mobile-optimized QR scanner overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-48 h-48 sm:w-64 sm:h-64 border-4 border-green-500 rounded-lg relative">
+                          <div className="absolute top-0 left-0 w-6 h-6 sm:w-8 sm:h-8 border-t-4 border-l-4 border-green-500"></div>
+                          <div className="absolute top-0 right-0 w-6 h-6 sm:w-8 sm:h-8 border-t-4 border-r-4 border-green-500"></div>
+                          <div className="absolute bottom-0 left-0 w-6 h-6 sm:w-8 sm:h-8 border-b-4 border-l-4 border-green-500"></div>
+                          <div className="absolute bottom-0 right-0 w-6 h-6 sm:w-8 sm:h-8 border-b-4 border-r-4 border-green-500"></div>
+                        </div>
+                      </div>
+                      <div className="absolute bottom-4 left-0 right-0 text-center px-4">
+                        <p className="text-white text-sm bg-black/60 inline-block px-3 py-2 rounded-full">
+                          📷 Scanning for QR code...
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Mobile-friendly buttons */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {!scanning ? (
+                    <button
+                      onClick={startCamera}
+                      className="btn-primary flex-1 flex items-center justify-center space-x-2 py-3 text-base font-medium"
+                    >
+                      <Camera size={20} />
+                      <span>Start Camera</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopCamera}
+                      className="btn-danger flex-1 py-3 text-base font-medium"
+                    >
+                      Stop Camera
+                    </button>
+                  )}
+                </div>
+                
+                {/* Mobile instructions */}
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-400 text-center">
+                    📱 Hold your phone steady and point the camera at the QR code displayed by your instructor
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Face Verification - Mobile Optimized */}
+            {showFaceVerification && (
+              <div className="card-elevated p-4 sm:p-6 mb-4 sm:mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center flex-shrink-0">
+                    <ShieldCheck size={16} className="sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-bold text-base sm:text-lg text-gray-900 dark:text-white">Face Liveness Detection</h2>
+                    <span className="text-xs badge badge-warning">Step {currentStep + 1} of {verificationSteps.length}</span>
+                  </div>
+                </div>
+                <div className="mb-4 p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                  <p className="text-sm text-purple-800 dark:text-purple-400">
+                    👤 Please look at the camera and move your head slightly to confirm you're a real person.
+                  </p>
+                </div>
+                <div className="touch-none">
                   <FaceVerification
                     autoStart={true}
                     onVerified={handleFaceVerified}
                     onFailed={handleFaceFailed}
                   />
                 </div>
-              )}
-
-              {faceVerified && !showFaceVerification && (
-                <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg flex items-center gap-2">
-                  <CheckCircle size={18} />
-                  <span className="text-sm font-medium">✓ Face liveness confirmed</span>
+              </div>
+            )}
+            
+            {/* Location Verification - Mobile Optimized */}
+            {showLocationVerification && (
+              <div className="card-elevated p-4 sm:p-6 mb-4 sm:mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <MapPin size={16} className="sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-bold text-base sm:text-lg text-gray-900 dark:text-white">Location Verification</h2>
+                    <span className="text-xs badge badge-success">Step {currentStep + 1} of {verificationSteps.length}</span>
+                  </div>
                 </div>
-              )}
-
-              <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden mb-4 relative">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-0" />
-                
-                {!scanning && !showFaceVerification && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                    <div className="text-center">
-                      <Camera size={48} className="text-white mx-auto mb-4" />
-                      <p className="text-white text-lg">Camera not started</p>
-                      <p className="text-gray-300 text-sm mt-2">Click "Start Camera" to scan QR code</p>
-                    </div>
-                  </div>
-                )}
-                
-                {scanning && !showFaceVerification && (
-                  <div className="absolute inset-0 pointer-events-none">
-                    {/* QR Scanner overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-64 h-64 border-4 border-green-500 rounded-lg relative">
-                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-500"></div>
-                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-500"></div>
-                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-500"></div>
-                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-500"></div>
-                      </div>
-                    </div>
-                    <div className="absolute bottom-4 left-0 right-0 text-center">
-                      <p className="text-white text-sm bg-black/60 inline-block px-4 py-2 rounded-full">
-                        📷 Scanning for QR code...
-                      </p>
-                    </div>
+                <div className="mb-4 p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                  <p className="text-sm text-green-800 dark:text-green-400">
+                    📍 Verifying your location to ensure you're at the session venue...
+                  </p>
+                </div>
+                {location && (
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 rounded-lg">
+                    <p className="text-sm">
+                      ✅ Location acquired: Accuracy ±{Math.round(location.accuracy)}m
+                    </p>
                   </div>
                 )}
               </div>
-              
-              <div className="flex space-x-4">
-                {!scanning && !showFaceVerification ? (
-                  <button
-                    onClick={startCamera}
-                    className="btn-primary flex-1 flex items-center justify-center space-x-2"
-                  >
-                    <Camera size={20} />
-                    <span>Start Camera</span>
-                  </button>
-                ) : scanning && !showFaceVerification ? (
-                  <button
-                    onClick={stopCamera}
-                    className="btn-danger flex-1"
-                  >
-                    Stop Camera
-                  </button>
-                ) : null}
+            )}
+            
+            {/* Start Button - Mobile Optimized */}
+            {!showQRScanner && !showFaceVerification && !showLocationVerification && verificationSteps.length === 0 && (
+              <div className="card-elevated p-4 sm:p-6 text-center">
+                <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-white mb-4">
+                  Ready to Mark Attendance?
+                </h3>
+                <button
+                  onClick={startVerificationFlow}
+                  className="btn-primary flex items-center justify-center space-x-2 mx-auto py-3 px-6 text-base font-medium"
+                >
+                  <ShieldCheck size={20} />
+                  <span>Start Verification</span>
+                </button>
               </div>
-              
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center font-medium">
-                {!scanning && !showFaceVerification && '📱 Point your camera at the QR code displayed by your instructor'}
-                {scanning && !showFaceVerification && '⏳ Hold steady - QR code will be detected automatically'}
-                {showFaceVerification && '👤 Complete face liveness verification to mark attendance'}
-              </p>
-            </div>
+            )}
           </div>
         </main>
       </div>

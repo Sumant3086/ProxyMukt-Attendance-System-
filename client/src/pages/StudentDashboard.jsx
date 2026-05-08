@@ -13,6 +13,7 @@ import SessionNearbyNotification from '../components/SessionNearbyNotification';
 import { AttendanceTrendChart } from '../components/AttendanceChart';
 import axiosInstance from '../utils/axiosInstance';
 import { QrCode, BookOpen, Calendar, BarChart3, TrendingUp, Award } from 'lucide-react';
+import { DEFAULT_WEBSOCKET_URL, ATTENDANCE_SUCCESS_DISPLAY } from '../lib/constants';
 import { ATTENDANCE_THRESHOLD_GOOD, ATTENDANCE_THRESHOLD_WARNING, RECENT_ATTENDANCE_LIMIT } from '../lib/constants';
 
 export default function StudentDashboard() {
@@ -34,7 +35,7 @@ export default function StudentDashboard() {
       const userId = authData.state?.user?._id;
       const role = authData.state?.user?.role;
       
-      const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', {
+      const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || DEFAULT_WEBSOCKET_URL, {
         auth: { userId, role }
       });
       
@@ -65,7 +66,7 @@ export default function StudentDashboard() {
       // Show success message if attendance was marked
       if (location.state?.attendanceMarked) {
         setShowAttendanceSuccess(true);
-        setTimeout(() => setShowAttendanceSuccess(false), 5000); // Hide after 5 seconds
+        setTimeout(() => setShowAttendanceSuccess(false), ATTENDANCE_SUCCESS_DISPLAY); // Hide after configured time
       }
       
       // Clear the state

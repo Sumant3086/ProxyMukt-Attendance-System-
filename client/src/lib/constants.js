@@ -28,3 +28,20 @@ export const USER_ROLES = {
   FACULTY: 'FACULTY',
   STUDENT: 'STUDENT'
 };
+
+// ============================================
+// TIMING CONSTANTS (milliseconds)
+// ============================================
+export const VERIFICATION_STEP_DELAY = 1500;     // Delay between verification steps
+export const SUCCESS_MESSAGE_DELAY = 3000;       // How long to show success message
+export const REDIRECT_DELAY = 1000;              // Delay before redirect
+export const QR_SCAN_INTERVAL = 500;             // QR code scanning interval
+export const LOCATION_TIMEOUT = 10000;           // Location request timeout
+export const WEBSOCKET_RECONNECT_DELAY = 2000;   // WebSocket reconnection delay
+export const ATTENDANCE_SUCCESS_DISPLAY = 5000;  // How long to show attendance success message
+
+// ============================================
+// API ENDPOINTS AND URLS
+// ============================================
+export const DEFAULT_WEBSOCKET_URL = 'http://localhost:5000';  // Fallback WebSocket URL
+export const FACE_API_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';  // Face detection model URL

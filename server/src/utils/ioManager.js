@@ -150,19 +150,19 @@ export function getConnectionStats() {
 export function emitAttendanceMarked(sessionId, classId, studentId, data) {
   if (!ioInstance) return;
 
-  // Emit to session room (faculty monitoring)
-  emitToSession(sessionId, 'attendance-marked', {
+  const eventData = {
     studentId,
+    sessionId,
+    classId,
     ...data,
     timestamp: Date.now()
-  });
+  };
 
-  // Emit to class room
-  emitToClass(classId, 'class-attendance-update', {
-    sessionId,
-    studentId,
-    timestamp: Date.now()
-  });
+  // Emit to session room (faculty monitoring) - FULL DATA
+  emitToSession(sessionId, 'attendance-marked', eventData);
+
+  // Emit to class room - FULL DATA (not just minimal data)
+  emitToClass(classId, 'class-attendance-update', eventData);
 
   // Emit to student
   emitToUser(studentId, 'attendance-confirmed', {

@@ -23,6 +23,7 @@ export default function StartSession() {
   const [attendanceList, setAttendanceList] = useState([]);
   const [attendanceListLoading, setAttendanceListLoading] = useState(false);
   const [showAttendanceList, setShowAttendanceList] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
   const [verificationSettings, setVerificationSettings] = useState({
     qrCode: true,
     faceVerification: false,
@@ -54,6 +55,18 @@ export default function StartSession() {
         role
       }
     });
+    
+    // Monitor WebSocket connection status
+    newSocket.on('connect', () => {
+      console.log('✅ WebSocket connected');
+      setSocketConnected(true);
+    });
+    
+    newSocket.on('disconnect', () => {
+      console.log('❌ WebSocket disconnected');
+      setSocketConnected(false);
+    });
+    
     setSocket(newSocket);
     
     return () => {
@@ -97,9 +110,20 @@ export default function StartSession() {
       console.log('Joining session room:', id);
       socket.emit('join-session', id);
       
+      // Also join class room for broader updates
+      if (session.class?._id) {
+        console.log('Joining class room:', session.class._id);
+        socket.emit('join-class', session.class._id);
+      }
+      
       // Listen for session join confirmation
       socket.on('joined-session', (data) => {
         console.log('Successfully joined session room:', data);
+      });
+      
+      // Listen for class join confirmation
+      socket.on('joined-class', (data) => {
+        console.log('Successfully joined class room:', data);
       });
       
       socket.on('qr-update', (data) => {
@@ -136,7 +160,27 @@ export default function StartSession() {
       // Listen for class attendance updates
       socket.on('class-attendance-update', (data) => {
         console.log('Class attendance update received:', data);
-        // Refresh session data
+        
+        // Update session data immediately if we have the attendance count
+        if (data.attendanceCount !== undefined) {
+          setSession(prev => ({
+            ...prev,
+            attendanceCount: data.attendanceCount
+          }));
+        }
+        
+        // Add to recent attendance feed if we have student data
+        if (data.studentName || data.studentId) {
+          const newEntry = {
+            studentName: data.studentName || 'Student',
+            studentId: data.studentId || 'N/A',
+            timestamp: new Date(),
+            status: 'success'
+          };
+          setRecentAttendance(prev => [newEntry, ...prev].slice(0, 10));
+        }
+        
+        // Always refresh session data and attendance list
         fetchSession();
         fetchAttendanceList();
       });
@@ -158,6 +202,7 @@ export default function StartSession() {
       
       return () => {
         socket.off('joined-session');
+        socket.off('joined-class');
         socket.off('qr-update');
         socket.off('attendance-marked');
         socket.off('class-attendance-update');
@@ -165,11 +210,15 @@ export default function StartSession() {
         socket.off('session-status-changed');
       };
     }
-  }, [socket, session, id]);
+  }, [socket, session?.status, session?.class?._id, id]);
   
   const fetchSession = async () => {
     try {
       const { data } = await axiosInstance.get(`/sessions/${id}`);
+      console.log('📊 Session data fetched:', data.data.session);
+      console.log('📊 Attendance count:', data.data.session.attendanceCount);
+      console.log('📊 Total students:', data.data.session.totalStudents);
+      
       setSession(data.data.session);
       setQrEnabled(data.data.session.qrEnabled || false);
       
@@ -402,11 +451,39 @@ export default function StartSession() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {/* Attendance Card */}
               <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center">
-                    <Users className="text-white" size={24} />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center">
+                      <Users className="text-white" size={24} />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white">Attendance</h3>
                   </div>
-                  <h3 className="text-lg font-semibold text-white">Attendance</h3>
+                  <div className="flex items-center gap-2">
+                    {/* WebSocket Status Indicator */}
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                      socketConnected 
+                        ? 'bg-green-900/30 text-green-400' 
+                        : 'bg-red-900/30 text-red-400'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full ${
+                        socketConnected ? 'bg-green-400' : 'bg-red-400'
+                      }`}></div>
+                      {socketConnected ? 'Live' : 'Offline'}
+                    </div>
+                    {/* Manual Refresh Button */}
+                    <button
+                      onClick={() => {
+                        fetchSession();
+                        fetchAttendanceList();
+                      }}
+                      className="p-1 text-gray-400 hover:text-white transition-colors"
+                      title="Refresh attendance data"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
                   {session?.attendanceCount || 0} / {session?.totalStudents || 0}
@@ -502,6 +579,25 @@ export default function StartSession() {
                 >
                   <List size={18} />
                   <span>{showAttendanceList ? 'Hide' : 'View'} Attendance List</span>
+                </button>
+                {/* WebSocket Test Button (Development) */}
+                <button
+                  onClick={() => {
+                    console.log('🧪 Testing WebSocket connection...');
+                    console.log('Socket connected:', socketConnected);
+                    console.log('Socket instance:', socket);
+                    if (socket) {
+                      socket.emit('ping');
+                      console.log('Ping sent to server');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all font-semibold"
+                  title="Test WebSocket connection"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Test WS</span>
                 </button>
               </div>
             </div>

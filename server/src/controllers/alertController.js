@@ -76,7 +76,7 @@ export const reviewAlert = async (req, res) => {
     const alert = await Alert.findByIdAndUpdate(
       req.params.id,
       {
-        status: 'REVIEWED',
+        status,
         reviewedBy: req.user._id,
         reviewedAt: new Date(),
         reviewNotes: notes,

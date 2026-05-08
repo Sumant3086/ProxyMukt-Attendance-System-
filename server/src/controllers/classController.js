@@ -215,8 +215,10 @@ export const addStudents = async (req, res) => {
       });
     }
     
-    // Add students (avoid duplicates)
-    classData.students = [...new Set([...classData.students, ...studentIds])];
+    // Add students (avoid duplicates) - compare as strings since ObjectIds are objects
+    const existingIds = new Set(classData.students.map((id) => id.toString()));
+    const newIds = studentIds.filter((id) => !existingIds.has(id.toString()));
+    classData.students = [...classData.students, ...newIds];
     await classData.save();
     
     await classData.populate('students', 'name email studentId');

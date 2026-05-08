@@ -37,9 +37,8 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
     } catch (err) {
       console.error('Model load error:', err);
       setStatus('failed');
-      setMessage('Face detection unavailable. Proceeding with attendance...');
-      // Auto-bypass if models fail to load
-      setTimeout(() => onVerified && onVerified({ bypassed: true, reason: 'Models failed to load' }), 1500);
+      setMessage('Face detection models failed to load. Check your internet connection and refresh.');
+      setTimeout(() => onFailed && onFailed(), 1000);
     }
   };
 
@@ -58,8 +57,8 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
       startDetection();
     } catch (err) {
       setStatus('failed');
-      setMessage('Camera access denied. Proceeding without face verification.');
-      setTimeout(() => onVerified && onVerified({ bypassed: true }), 1500);
+      setMessage('Camera access denied. Please enable camera permissions in your browser settings.');
+      setTimeout(() => onFailed && onFailed(), 1000);
     }
   };
 
@@ -101,7 +100,7 @@ export default function FaceVerification({ onVerified, onFailed, autoStart = fal
           if (attempts >= maxAttempts) {
             clearInterval(intervalRef.current);
             setStatus('failed');
-            setMessage('⚠️ No face detected in frame. Attendance will proceed without face verification.');
+            setMessage('⚠️ No face detected. Please retry and ensure your face is clearly visible.');
             cleanup();
             setTimeout(() => onFailed && onFailed(), 1000);
           }

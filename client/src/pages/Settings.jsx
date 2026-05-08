@@ -20,25 +20,25 @@ export default function Settings() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-5xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Settings
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your account settings and preferences</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">Manage your account settings and preferences</p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {/* Tabs */}
-              <div className="space-y-2">
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-6">
+              {/* Tabs — horizontal on mobile, vertical on sm+ */}
+              <div className="flex sm:flex-col gap-2 overflow-x-auto pb-1 sm:pb-0 sm:overflow-visible">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      className={`flex-shrink-0 sm:w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all text-sm sm:text-base ${
                         activeTab === tab.id
                           ? 'bg-indigo-600 text-white'
                           : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -52,7 +52,7 @@ export default function Settings() {
               </div>
               
               {/* Content */}
-              <div className="md:col-span-3 card-elevated p-6">
+              <div className="sm:col-span-3 card-elevated p-4 sm:p-6">
                 {activeTab === 'profile' && (
                   <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Settings</h2>

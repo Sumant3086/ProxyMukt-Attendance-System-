@@ -21,104 +21,90 @@ import { getIO, emitAttendanceMarked } from '../utils/ioManager.js';
 export const checkNearbySession = async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
-    
+
     if (!validateCoordinates(latitude, longitude)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid coordinates provided',
       });
     }
-    
-    // Find all live sessions with geofencing enabled
+
+    // Find all live sessions that use location-based verification and don't require QR.
+    // We query by verificationRequirements (what faculty configures) — NOT by
+    // location.geofencingEnabled, which is often never set by the faculty UI.
     const liveSessions = await Session.find({
       status: 'LIVE',
-      'location.geofencingEnabled': true,
-      'location.latitude': { $exists: true },
-      'location.longitude': { $exists: true }
+      'verificationRequirements.locationVerification': true,
+      'verificationRequirements.qrCode': { $ne: true }, // auto-attendance = no QR
     }).populate('class', 'name code students');
-    
+
     if (liveSessions.length === 0) {
       return res.json({
         success: true,
-        data: {
-          session: null,
-          message: 'No active sessions nearby'
-        }
+        data: { session: null, message: 'No active sessions nearby' },
       });
     }
-    
-    // Find nearest session within range
+
     let nearestSession = null;
     let minDistance = Infinity;
-    
+
     for (const session of liveSessions) {
-      // Validate session has required data
-      if (!session.class || !session.class.students) {
-        console.warn(`Session ${session._id} missing class or students data`);
-        continue;
-      }
-      
-      // Validate session has location data
-      if (!session.location || !session.location.latitude || !session.location.longitude) {
-        console.warn(`Session ${session._id} missing location data`);
-        continue;
-      }
-      
-      // Check if student is enrolled
+      if (!session.class || !session.class.students) continue;
+
+      // Enrollment check
       const isEnrolled = session.class.students.some(
-        id => id.toString() === req.user._id.toString()
+        (id) => id.toString() === req.user._id.toString()
       );
-      
       if (!isEnrolled) continue;
-      
-      const verification = verifyGeofence(session.location, { latitude, longitude });
-      
-      if (verification.distance < minDistance) {
-        minDistance = verification.distance;
+
+      // Distance check — only if session has coordinates set by faculty
+      let distance = null;
+      let withinRange = true; // default: allow if no coordinates configured
+
+      if (session.location?.latitude && session.location?.longitude) {
+        const verification = verifyGeofence(session.location, { latitude, longitude });
+        distance = verification.distance;
+        withinRange = verification.verified;
+      }
+
+      const effectiveDistance = distance ?? 0;
+      if (effectiveDistance < minDistance) {
+        minDistance = effectiveDistance;
         nearestSession = {
           ...session.toObject(),
-          distance: verification.distance,
-          withinRange: verification.verified
+          distance,
+          withinRange,
         };
       }
     }
-    
+
     if (!nearestSession) {
       return res.json({
         success: true,
         data: {
           session: null,
-          message: 'No sessions found for your enrolled classes'
-        }
+          message: 'No sessions found for your enrolled classes',
+        },
       });
     }
-    
+
     // Check if already marked
     const existingAttendance = await Attendance.findOne({
       session: nearestSession._id,
-      student: req.user._id
+      student: req.user._id,
     });
-    
-    // Generate QR token for auto-marking
-    const qrToken = generateQRToken(nearestSession._id.toString());
-    
+
     res.json({
       success: true,
       data: {
-        session: {
-          ...nearestSession,
-          qrToken
-        },
-        distance: minDistance,
+        session: nearestSession,
+        distance: nearestSession.distance,
         withinRange: nearestSession.withinRange,
-        alreadyMarked: !!existingAttendance
-      }
+        alreadyMarked: !!existingAttendance,
+      },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -127,7 +113,7 @@ export const checkNearbySession = async (req, res) => {
  */
 export const markAttendance = async (req, res) => {
   try {
-    const { qrToken, location, autoMarked, deviceInfo } = req.body;
+    const { qrToken, location, autoMarked, deviceInfo, faceVerificationPassed } = req.body;
     
     // CRITICAL: Handle different verification scenarios
     let payload = null;
@@ -147,15 +133,30 @@ export const markAttendance = async (req, res) => {
       // Get session (optimized with lean query)
       session = await Session.findById(payload.sid).populate('class').lean();
     } else if (autoMarked && location) {
-      // Auto-attendance based on location only
-      // Find nearby live session for this student
-      const nearbySessionData = await findNearbySession(req.user._id, location);
+      // Auto-attendance (location-only) — find the session by GPS
+      let nearbySessionData = null;
+      try {
+        nearbySessionData = await findNearbySession(req.user._id, location);
+      } catch (err) {
+        console.error('Error finding nearby session:', err);
+        return res.status(500).json({ success: false, message: 'Error checking nearby sessions' });
+      }
+
       if (!nearbySessionData) {
         return res.status(404).json({
           success: false,
           message: 'No active session found in your location',
         });
       }
+
+      // Block auto-attendance when QR is required to prevent bypassing it
+      if (nearbySessionData.verificationRequirements?.qrCode) {
+        return res.status(403).json({
+          success: false,
+          message: 'This session requires QR code scanning. Auto-attendance is not available.',
+        });
+      }
+
       session = nearbySessionData;
     } else {
       return res.status(400).json({
@@ -242,7 +243,15 @@ export const markAttendance = async (req, res) => {
           message: 'QR code verification is required for this session',
         });
       }
-      
+
+      // Face verification — frontend must complete it before calling this endpoint
+      if (requirements.faceVerification && !faceVerificationPassed) {
+        return res.status(400).json({
+          success: false,
+          message: 'Face liveness verification is required for this session',
+        });
+      }
+
       // Location verification
       if (requirements.locationVerification && (!location || !location.latitude || !location.longitude)) {
         return res.status(400).json({
@@ -251,8 +260,6 @@ export const markAttendance = async (req, res) => {
           requiresLocation: true,
         });
       }
-      
-      // Face verification is handled on frontend - backend trusts the sequential flow
     }
     
     // LOCATION VALIDATION
@@ -294,6 +301,7 @@ export const markAttendance = async (req, res) => {
       class: session.class._id,
       qrToken: qrToken || null,
       attendanceSource: isAutoAttendance ? 'AUTO' : qrToken ? 'QR' : 'MANUAL',
+      faceVerificationPassed: !!faceVerificationPassed,
       deviceInfo: {
         userAgent: req.headers['user-agent'],
         ip: ipAddress,
@@ -506,7 +514,7 @@ export const getClassAttendanceReport = async (req, res) => {
     // OPTIMIZED: Use aggregation pipeline to get attendance counts per student
     const attendanceAggregation = await Attendance.aggregate([
       {
-        $match: { class: mongoose.Types.ObjectId(classId) }
+        $match: { class: new mongoose.Types.ObjectId(classId) }
       },
       {
         $group: {
@@ -574,7 +582,7 @@ export const getPeerCluster = async (req, res) => {
     }
 
     const { calculatePeerCluster } = await import('../utils/smartValidation.js');
-    const clusterData = calculatePeerCluster(sessionId);
+    const clusterData = await calculatePeerCluster(sessionId);
 
     res.json({
       success: true,
@@ -598,27 +606,34 @@ export const getAnalytics = async (req, res) => {
     const totalSessions = await Session.countDocuments();
     const totalAttendance = await Attendance.countDocuments();
     
-    // Get at-risk students (< 75% attendance)
-    const classes = await Class.find().populate('students');
+    // Get at-risk students (< 75% attendance) - using aggregation to avoid N+1 queries
+    const [sessionCounts, attendanceCounts] = await Promise.all([
+      Session.aggregate([
+        { $match: { status: { $in: ['COMPLETED', 'LIVE'] } } },
+        { $group: { _id: '$class', count: { $sum: 1 } } },
+      ]),
+      Attendance.aggregate([
+        { $group: { _id: { class: '$class', student: '$student' }, count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const sessionCountMap = new Map(sessionCounts.map((s) => [s._id.toString(), s.count]));
+    const attendanceCountMap = new Map(
+      attendanceCounts.map((a) => [`${a._id.class}-${a._id.student}`, a.count])
+    );
+
+    const classes = await Class.find().populate('students', 'name email studentId');
     const atRiskStudents = [];
-    
+
     for (const classData of classes) {
-      const sessions = await Session.find({
-        class: classData._id,
-        status: { $in: ['COMPLETED', 'LIVE'] },
-      });
-      
+      const totalSessions = sessionCountMap.get(classData._id.toString()) || 0;
+      if (totalSessions === 0) continue;
+
       for (const student of classData.students) {
-        const attendance = await Attendance.find({
-          class: classData._id,
-          student: student._id,
-        });
-        
-        const percentage = sessions.length > 0
-          ? (attendance.length / sessions.length) * 100
-          : 0;
-        
-        if (percentage < 75 && sessions.length > 0) {
+        const attended = attendanceCountMap.get(`${classData._id}-${student._id}`) || 0;
+        const percentage = (attended / totalSessions) * 100;
+
+        if (percentage < 75) {
           atRiskStudents.push({
             student,
             class: classData,
@@ -650,34 +665,32 @@ export const getAnalytics = async (req, res) => {
 // Helper function to find nearby session for auto-attendance
 const findNearbySession = async (studentId, location) => {
   try {
-    // Find all live sessions with geofencing enabled
+    // Same query logic as checkNearbySession — use verificationRequirements,
+    // not location.geofencingEnabled (which is often never set by the faculty UI)
     const liveSessions = await Session.find({
       status: 'LIVE',
-      'location.geofencingEnabled': true,
-      'location.latitude': { $exists: true },
-      'location.longitude': { $exists: true }
+      'verificationRequirements.locationVerification': true,
+      'verificationRequirements.qrCode': { $ne: true },
     }).populate('class', 'name code students').lean();
-    
-    if (liveSessions.length === 0) {
-      return null;
-    }
-    
-    // Find nearest session within range where student is enrolled
+
+    if (liveSessions.length === 0) return null;
+
     for (const session of liveSessions) {
-      // Check if student is enrolled
       const isEnrolled = session.class.students.some(
-        id => id.toString() === studentId.toString()
+        (id) => id.toString() === studentId.toString()
       );
-      
       if (!isEnrolled) continue;
-      
-      const verification = verifyGeofence(session.location, location);
-      
-      if (verification.verified) {
+
+      // If session has coordinates, do a geofence check
+      if (session.location?.latitude && session.location?.longitude) {
+        const verification = verifyGeofence(session.location, location);
+        if (verification.verified) return session;
+      } else {
+        // No coordinates configured — allow from any location
         return session;
       }
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error finding nearby session:', error);

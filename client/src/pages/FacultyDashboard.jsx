@@ -298,26 +298,26 @@ export default function FacultyDashboard() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Faculty Dashboard
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your classes and sessions</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">Manage your classes and sessions</p>
               </div>
               <button
                 onClick={() => setShowCreateClass(true)}
-                className="btn-primary flex items-center space-x-2"
+                className="btn-primary flex items-center gap-2 self-start sm:self-auto text-sm sm:text-base"
               >
-                <Plus size={20} />
+                <Plus size={18} />
                 <span>Create Class</span>
               </button>
             </div>
-            
+
             {/* Dashboard Overview Section */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
               <div className="card-elevated p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -451,8 +451,8 @@ export default function FacultyDashboard() {
             </div>
             
             {showCreateClass && (
-              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="card-elevated max-w-md w-full p-8">
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+                <div className="card-elevated w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 sm:p-8 max-h-[90vh] overflow-y-auto">
                   <h2 className="text-2xl font-bold mb-6 text-gradient">Create New Class</h2>
                   <form onSubmit={handleCreateClass} className="space-y-4">
                     <input
@@ -510,9 +510,9 @@ export default function FacultyDashboard() {
             )}
 
             {showStartSession && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-[#1a1f35] border border-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8">
-                  <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+                <div className="bg-[#1a1f35] border border-gray-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-8">
+                  <h2 className="text-xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
                     Start New Session
                   </h2>
                   <p className="text-gray-400 mb-6 flex items-center gap-2">
@@ -695,8 +695,8 @@ export default function FacultyDashboard() {
             
             {/* Manage Students Modal */}
             {showManageStudents && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white dark:bg-[#1a1f35] border border-gray-200 dark:border-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+                <div className="bg-white dark:bg-[#1a1f35] border border-gray-200 dark:border-gray-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
                   {/* Header */}
                   <div className="p-6 border-b border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-2">

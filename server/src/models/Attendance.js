@@ -29,7 +29,11 @@ const attendanceSchema = new mongoose.Schema(
     },
     qrToken: {
       type: String,
-      required: true,
+      // Not required — auto-attendance and location-only sessions have no QR token
+    },
+    faceVerificationPassed: {
+      type: Boolean,
+      default: false,
     },
     deviceInfo: {
       userAgent: String,

@@ -43,5 +43,5 @@ export const ATTENDANCE_SUCCESS_DISPLAY = 5000;  // How long to show attendance 
 // ============================================
 // API ENDPOINTS AND URLS
 // ============================================
-export const DEFAULT_WEBSOCKET_URL = 'http://localhost:5000';  // Fallback WebSocket URL
+export const DEFAULT_WEBSOCKET_URL = 'http://localhost:5001';  // Fallback WebSocket URL
 export const FACE_API_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';  // Face detection model URL

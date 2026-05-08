@@ -15,29 +15,29 @@ export default function UserManagement() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   User Management
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">Manage users, roles, and permissions</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">Manage users, roles, and permissions</p>
               </div>
-              <div className="flex gap-3">
-                <button className="btn-secondary flex items-center gap-2">
-                  <Upload size={18} />
+              <div className="flex flex-wrap gap-2 sm:gap-3">
+                <button className="btn-secondary flex items-center gap-1.5 text-sm py-2">
+                  <Upload size={16} />
                   <span>Bulk Import</span>
                 </button>
-                <button className="btn-primary flex items-center gap-2">
-                  <UserPlus size={18} />
+                <button className="btn-primary flex items-center gap-1.5 text-sm py-2">
+                  <UserPlus size={16} />
                   <span>Add User</span>
                 </button>
               </div>
             </div>
-            
+
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
               <div className="card-elevated p-6">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Users</p>
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">1,234</p>
@@ -57,8 +57,8 @@ export default function UserManagement() {
             </div>
             
             {/* Users Table */}
-            <div className="card-elevated p-6">
-              <div className="overflow-x-auto">
+            <div className="card-elevated p-4 sm:p-6">
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700">

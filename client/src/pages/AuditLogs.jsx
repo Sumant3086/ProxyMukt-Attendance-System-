@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import { Shield, Filter, Download, AlertTriangle } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
@@ -31,7 +31,7 @@ const AuditLogs = () => {
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
 
-      const { data } = await axios.get(`/api/audit?${params.toString()}`);
+      const { data } = await axiosInstance.get(`/audit?${params.toString()}`);
       setLogs(data.data.logs);
     } catch (error) {
       console.error('Error fetching logs:', error);
@@ -42,7 +42,7 @@ const AuditLogs = () => {
 
   const fetchStats = async () => {
     try {
-      const { data } = await axios.get('/api/audit/stats');
+      const { data } = await axiosInstance.get('/audit/stats');
       setStats(data.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -73,16 +73,16 @@ const AuditLogs = () => {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="max-w-7xl mx-auto"
           >
-            <div className="flex items-center justify-between mb-8">
+            <div className="mb-6 sm:mb-8">
               <div className="flex items-center gap-3">
-                <Shield className="w-8 h-8 text-purple-400" />
-                <h1 className="text-3xl font-bold text-white">Audit Logs</h1>
+                <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
+                <h1 className="text-2xl sm:text-3xl font-bold text-white">Audit Logs</h1>
               </div>
             </div>
 

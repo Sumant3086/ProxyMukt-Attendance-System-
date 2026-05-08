@@ -9,16 +9,16 @@ export default function Classes() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Classes
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your classes and enrollments</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">Manage your classes and enrollments</p>
               </div>
-              <button className="btn-primary flex items-center gap-2">
+              <button className="btn-primary flex items-center gap-2 self-start sm:self-auto">
                 <Plus size={18} />
                 <span>Create Class</span>
               </button>

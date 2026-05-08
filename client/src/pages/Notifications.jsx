@@ -59,22 +59,22 @@ export default function Notifications() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Notifications
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
                   {notifications.filter(n => !n.read).length} unread notifications
                 </p>
               </div>
               <button
                 onClick={markAllAsRead}
-                className="btn-secondary flex items-center gap-2"
+                className="btn-secondary flex items-center gap-2 self-start sm:self-auto text-sm"
               >
-                <CheckCheck size={18} />
+                <CheckCheck size={16} />
                 <span>Mark All as Read</span>
               </button>
             </div>

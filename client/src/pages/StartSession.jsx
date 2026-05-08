@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import QRDisplay from '../components/QRDisplay';
 import Loader from '../components/Loader';
-import axiosInstance from '../utils/axiosInstance';
+import axiosInstance, { clearCache } from '../utils/axiosInstance';
 import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle, QrCode, Zap, Lock, MapPin, Pause, Play, Download, Send, List, Bell } from 'lucide-react';
 import { DEFAULT_WEBSOCKET_URL } from '../lib/constants';
 
@@ -106,114 +106,90 @@ export default function StartSession() {
   }, [session?.startTime]);
   
   useEffect(() => {
-    if (socket && session?.status === 'LIVE') {
-      console.log('Joining session room:', id);
-      socket.emit('join-session', id);
-      
-      // Also join class room for broader updates
-      if (session.class?._id) {
-        console.log('Joining class room:', session.class._id);
-        socket.emit('join-class', session.class._id);
-      }
-      
-      // Listen for session join confirmation
-      socket.on('joined-session', (data) => {
-        console.log('Successfully joined session room:', data);
-      });
-      
-      // Listen for class join confirmation
-      socket.on('joined-class', (data) => {
-        console.log('Successfully joined class room:', data);
-      });
-      
-      socket.on('qr-update', (data) => {
-        console.log('QR update received:', data);
-        setQrToken(data.qrToken);
-      });
-      
-      // Listen for real-time attendance updates
-      socket.on('attendance-marked', (data) => {
-        console.log('Attendance marked event received:', data);
-        
-        // Update session count
-        setSession(prev => ({
-          ...prev,
-          attendanceCount: data.attendanceCount || (prev.attendanceCount + 1)
-        }));
-        
-        // Add to recent attendance feed
-        if (data.student) {
-          const newEntry = {
-            studentName: data.student.name || data.studentName || 'Student',
-            studentId: data.student.studentId || data.studentId || 'N/A',
-            timestamp: new Date(),
-            status: 'success'
-          };
-          setRecentAttendance(prev => [newEntry, ...prev].slice(0, 10));
-        }
-        
-        // Refresh full attendance list
-        console.log('Refreshing attendance list due to attendance-marked event');
-        fetchAttendanceList();
-      });
-      
-      // Listen for class attendance updates
-      socket.on('class-attendance-update', (data) => {
-        console.log('Class attendance update received:', data);
-        
-        // Update session data immediately if we have the attendance count
-        if (data.attendanceCount !== undefined) {
-          setSession(prev => ({
+    if (!socket || session?.status !== 'LIVE') return;
+
+    socket.emit('join-session', id);
+    if (session.class?._id) socket.emit('join-class', session.class._id);
+
+    // Named handlers so .off() removes exactly these functions
+    const onQrUpdate = (data) => setQrToken(data.qrToken);
+
+    const onAttendanceMarked = (data) => {
+      // Use the count from the socket event directly — never re-fetch for count
+      // to avoid the Axios cache returning stale attendanceCount: 0
+      setSession((prev) => ({
+        ...prev,
+        attendanceCount: data.attendanceCount ?? (prev.attendanceCount + 1),
+        totalStudents: data.totalStudents ?? prev.totalStudents,
+      }));
+      if (data.studentName || data.student) {
+        setRecentAttendance((prev) =>
+          [
+            {
+              studentName: data.student?.name || data.studentName || 'Student',
+              studentId: data.student?.studentId || data.studentId || 'N/A',
+              timestamp: new Date(),
+              status: 'success',
+            },
             ...prev,
-            attendanceCount: data.attendanceCount
-          }));
-        }
-        
-        // Add to recent attendance feed if we have student data
-        if (data.studentName || data.studentId) {
-          const newEntry = {
-            studentName: data.studentName || 'Student',
-            studentId: data.studentId || 'N/A',
-            timestamp: new Date(),
-            status: 'success'
-          };
-          setRecentAttendance(prev => [newEntry, ...prev].slice(0, 10));
-        }
-        
-        // Always refresh session data and attendance list
-        fetchSession();
-        fetchAttendanceList();
-      });
-      
-      // Listen for verification settings updates
-      socket.on('verification-settings-updated', (data) => {
-        console.log('Verification settings updated:', data);
-        setVerificationSettings(data.verificationRequirements);
-      });
-      
-      // Listen for session status changes
-      socket.on('session-status-changed', (data) => {
-        console.log('Session status changed:', data);
-        setSession(prev => ({
-          ...prev,
-          status: data.status
-        }));
-      });
-      
-      return () => {
-        socket.off('joined-session');
-        socket.off('joined-class');
-        socket.off('qr-update');
-        socket.off('attendance-marked');
-        socket.off('class-attendance-update');
-        socket.off('verification-settings-updated');
-        socket.off('session-status-changed');
-      };
-    }
+          ].slice(0, 10)
+        );
+      }
+      // Clear cache so the attendance list reflects the new record
+      clearCache();
+      fetchAttendanceList();
+    };
+
+    const onClassAttendanceUpdate = (data) => {
+      // Update count directly from event data — do NOT call fetchSession() here
+      // because the Axios cache would overwrite the live count with stale data
+      if (data.attendanceCount !== undefined) {
+        setSession((prev) => ({ ...prev, attendanceCount: data.attendanceCount }));
+      }
+      if (data.studentName || data.studentId) {
+        setRecentAttendance((prev) =>
+          [
+            {
+              studentName: data.studentName || 'Student',
+              studentId: data.studentId || 'N/A',
+              timestamp: new Date(),
+              status: 'success',
+            },
+            ...prev,
+          ].slice(0, 10)
+        );
+      }
+      // Only refresh the attendance list (not session) — clear cache first
+      clearCache();
+      fetchAttendanceList();
+    };
+
+    const onVerificationSettingsUpdated = (data) =>
+      setVerificationSettings(data.verificationRequirements);
+
+    const onSessionStatusChanged = (data) =>
+      setSession((prev) => ({ ...prev, status: data.status }));
+
+    socket.on('qr-update', onQrUpdate);
+    socket.on('attendance-marked', onAttendanceMarked);
+    socket.on('class-attendance-update', onClassAttendanceUpdate);
+    socket.on('verification-settings-updated', onVerificationSettingsUpdated);
+    socket.on('session-status-changed', onSessionStatusChanged);
+
+    return () => {
+      socket.emit('leave-session', id);
+      socket.off('qr-update', onQrUpdate);
+      socket.off('attendance-marked', onAttendanceMarked);
+      socket.off('class-attendance-update', onClassAttendanceUpdate);
+      socket.off('verification-settings-updated', onVerificationSettingsUpdated);
+      socket.off('session-status-changed', onSessionStatusChanged);
+    };
   }, [socket, session?.status, session?.class?._id, id]);
   
   const fetchSession = async () => {
     try {
+      // Always bypass cache for live session data so counts are never stale
+      clearCache();
       const { data } = await axiosInstance.get(`/sessions/${id}`);
       console.log('📊 Session data fetched:', data.data.session);
       console.log('📊 Attendance count:', data.data.session.attendanceCount);
@@ -276,6 +252,8 @@ export default function StartSession() {
   const fetchAttendanceList = async () => {
     try {
       setAttendanceListLoading(true);
+      // No cache — this is a live feed that must always reflect new records
+      clearCache();
       const { data } = await axiosInstance.get(`/sessions/${id}/attendance-public`);
       setAttendanceList(data.data.attendance || []);
     } catch (error) {
@@ -335,10 +313,13 @@ export default function StartSession() {
         qrEnabled: newQrState
       });
       setQrEnabled(newQrState);
+      // Sync local verificationSettings so the status card & settings panel stay consistent
+      setVerificationSettings(prev => ({ ...prev, qrCode: newQrState }));
       if (newQrState) {
-        // Generate new QR token
         const { data } = await axiosInstance.get(`/sessions/${id}/qr`);
         setQrToken(data.data.qrToken);
+      } else {
+        setQrToken('');
       }
     } catch (error) {
       console.error('Error toggling QR:', error);
@@ -352,10 +333,11 @@ export default function StartSession() {
         verificationRequirements: newSettings
       });
       setVerificationSettings(newSettings);
-      
-      // Refresh session data to ensure everything is in sync
-      await fetchSession();
-      
+      // Sync qrEnabled toggle if qrCode requirement changed
+      if (typeof newSettings.qrCode === 'boolean') {
+        setQrEnabled(newSettings.qrCode);
+        if (!newSettings.qrCode) setQrToken('');
+      }
       alert('Verification settings updated successfully!');
     } catch (error) {
       console.error('Error updating settings:', error);
@@ -533,21 +515,35 @@ export default function StartSession() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="text-green-500" size={16} />
-                    <span className="text-sm text-gray-300">QR Code</span>
+                    {verificationSettings.qrCode ? (
+                      <CheckCircle className="text-green-500" size={16} />
+                    ) : (
+                      <XCircle className="text-gray-500" size={16} />
+                    )}
+                    <span className={`text-sm ${verificationSettings.qrCode ? 'text-gray-300' : 'text-gray-500'}`}>
+                      QR Code {!verificationSettings.qrCode && '(disabled)'}
+                    </span>
                   </div>
-                  {verificationSettings.faceVerification && (
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    {verificationSettings.faceVerification ? (
                       <CheckCircle className="text-green-500" size={16} />
-                      <span className="text-sm text-gray-300">Face Liveness</span>
-                    </div>
-                  )}
-                  {verificationSettings.locationVerification && (
-                    <div className="flex items-center gap-2">
+                    ) : (
+                      <XCircle className="text-gray-500" size={16} />
+                    )}
+                    <span className={`text-sm ${verificationSettings.faceVerification ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Face Liveness {!verificationSettings.faceVerification && '(off)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {verificationSettings.locationVerification ? (
                       <CheckCircle className="text-green-500" size={16} />
-                      <span className="text-sm text-gray-300">GPS Location</span>
-                    </div>
-                  )}
+                    ) : (
+                      <XCircle className="text-gray-500" size={16} />
+                    )}
+                    <span className={`text-sm ${verificationSettings.locationVerification ? 'text-gray-300' : 'text-gray-500'}`}>
+                      GPS Location {!verificationSettings.locationVerification && '(off)'}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Zap className="text-blue-500" size={16} />
                     <span className="text-sm text-gray-300">Background Checks</span>
@@ -741,8 +737,8 @@ export default function StartSession() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   {/* QR Code */}
                   <div className={`p-4 rounded-xl border-2 ${
-                    verificationSettings.qrCode 
-                      ? 'bg-green-600/10 border-green-600' 
+                    verificationSettings.qrCode
+                      ? 'bg-green-600/10 border-green-600'
                       : 'bg-gray-800/50 border-gray-700'
                   }`}>
                     <div className="flex items-center gap-3">
@@ -753,7 +749,9 @@ export default function StartSession() {
                       )}
                       <div>
                         <div className="font-semibold text-white">QR Code</div>
-                        <div className="text-xs text-gray-400">(Always Required)</div>
+                        <div className="text-xs text-gray-400">
+                          {verificationSettings.qrCode ? 'Required' : 'Disabled (auto-attendance)'}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -848,8 +846,30 @@ export default function StartSession() {
                     <div className="space-y-4">
                       <label className="flex items-center justify-between p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800 cursor-pointer transition-colors">
                         <div className="flex items-center gap-3">
+                          <span className="text-2xl">📱</span>
+                          <div>
+                            <span className="font-semibold text-white block">Require QR Code Scan</span>
+                            <span className="text-xs text-gray-400">Students must scan the QR code. Disable for auto (location-only) attendance.</span>
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={verificationSettings.qrCode}
+                          onChange={(e) => {
+                            const newSettings = { ...verificationSettings, qrCode: e.target.checked };
+                            updateVerificationSettings(newSettings);
+                          }}
+                          className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800 cursor-pointer transition-colors">
+                        <div className="flex items-center gap-3">
                           <span className="text-2xl">👤</span>
-                          <span className="font-semibold text-white">Require Face Liveness Detection (Real-time movement check)</span>
+                          <div>
+                            <span className="font-semibold text-white block">Require Face Liveness Detection</span>
+                            <span className="text-xs text-gray-400">Real-time movement check (not facial recognition)</span>
+                          </div>
                         </div>
                         <input
                           type="checkbox"
@@ -861,11 +881,14 @@ export default function StartSession() {
                           className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
                         />
                       </label>
-                      
+
                       <label className="flex items-center justify-between p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800 cursor-pointer transition-colors">
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">📍</span>
-                          <span className="font-semibold text-white">Require GPS Location Verification (Geofencing)</span>
+                          <div>
+                            <span className="font-semibold text-white block">Require GPS Location Verification</span>
+                            <span className="text-xs text-gray-400">Geofencing — students must be physically present</span>
+                          </div>
                         </div>
                         <input
                           type="checkbox"
@@ -879,7 +902,7 @@ export default function StartSession() {
                       </label>
                     </div>
                     <p className="text-xs text-gray-400 mt-4 p-3 bg-gray-800/50 rounded-lg">
-                      💡 Students will need to complete all enabled verification methods. Background security checks (IP, proxy, device fingerprint) run automatically.
+                      💡 Students complete all enabled steps in order: QR → Face → Location. Disable QR to enable auto (location-only) attendance. Background security checks run automatically.
                     </p>
                   </div>
                 )}

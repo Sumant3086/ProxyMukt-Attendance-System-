@@ -194,14 +194,21 @@ export const resumeSession = async (req, res) => {
 export const endSession = async (req, res) => {
   try {
     const session = await Session.findById(req.params.id);
-    
+
     if (!session) {
       return res.status(404).json({
         success: false,
         message: 'Session not found',
       });
     }
-    
+
+    if (!['LIVE', 'PAUSED'].includes(session.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot end a session in ${session.status} state`,
+      });
+    }
+
     session.status = 'COMPLETED';
     session.endTime = new Date();
     await session.save();
@@ -353,19 +360,24 @@ export const getSessionById = async (req, res) => {
 export const toggleQR = async (req, res) => {
   try {
     const { qrEnabled } = req.body;
-    
+
     const session = await Session.findById(req.params.id);
-    
+
     if (!session) {
       return res.status(404).json({
         success: false,
         message: 'Session not found',
       });
     }
-    
+
     session.qrEnabled = qrEnabled;
+    // Keep verificationRequirements.qrCode in sync with the display toggle
+    session.verificationRequirements = {
+      ...session.verificationRequirements.toObject?.() ?? session.verificationRequirements,
+      qrCode: qrEnabled,
+    };
     await session.save();
-    
+
     res.json({
       success: true,
       message: `QR code ${qrEnabled ? 'enabled' : 'disabled'} successfully`,
@@ -395,9 +407,9 @@ export const updateVerificationSettings = async (req, res) => {
       });
     }
     
-    // Update verification requirements
+    // Update verification requirements — respect faculty's choice for each method
     session.verificationRequirements = {
-      qrCode: true, // Always required
+      qrCode: verificationRequirements.qrCode !== false,
       faceVerification: verificationRequirements.faceVerification || false,
       locationVerification: verificationRequirements.locationVerification || false,
     };

@@ -58,17 +58,17 @@ export default function StudentAttendance() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8 relative z-10">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 relative z-10 min-w-0">
           <div className="max-w-7xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-8"
+              className="mb-6 sm:mb-8"
             >
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-1">
                 My Attendance
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">Track your attendance records</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Track your attendance records</p>
             </motion.div>
 
             {/* Class Filter */}
@@ -76,10 +76,10 @@ export default function StudentAttendance() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="mb-6"
+              className="mb-5 sm:mb-6"
             >
-              <GlassCard className="p-4">
-                <div className="flex items-center space-x-4">
+              <GlassCard className="p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Filter by Class:
                   </label>

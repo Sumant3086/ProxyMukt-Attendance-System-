@@ -111,7 +111,7 @@ export default function Login() {
             <GraduationCap size={64} className="text-indigo-600 dark:text-indigo-400" />
           </motion.div>
           
-          <h2 className="text-4xl font-bold mb-2">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
             <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               Smart Attendance
             </span>
@@ -127,7 +127,7 @@ export default function Login() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          <GlassCard className="p-8">
+          <GlassCard className="p-4 sm:p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
                 <motion.div

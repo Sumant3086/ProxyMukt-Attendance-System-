@@ -165,27 +165,27 @@ export default function StudentDashboard() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8 relative z-10">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 relative z-10 min-w-0">
           <div className="max-w-7xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex justify-between items-center mb-8"
+              className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8"
             >
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Student Dashboard
                 </h1>
-                <p className="text-slate-600 dark:text-slate-400 mt-2">Welcome back! Track your attendance</p>
+                <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm sm:text-base">Welcome back! Track your attendance</p>
               </div>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/scan')}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl hover:shadow-lg transition-all duration-300"
+                className="flex items-center space-x-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl hover:shadow-lg transition-all duration-300 self-start sm:self-auto"
               >
-                <QrCode size={20} />
-                <span className="font-semibold">Scan QR</span>
+                <QrCode size={18} />
+                <span className="font-semibold text-sm sm:text-base">Scan QR</span>
               </motion.button>
             </motion.div>
 

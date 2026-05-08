@@ -186,14 +186,14 @@ export default function AdminDashboard() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 sm:p-6 min-w-0">
           <div className="max-w-7xl mx-auto">
             {/* Header */}
-            <div className="mb-6">
-              <div className="flex items-center space-x-3 mb-2">
-                <Shield className="text-indigo-600" size={32} />
+            <div className="mb-5 sm:mb-6">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <Shield className="text-indigo-600 flex-shrink-0" size={24} />
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                     Admin Dashboard
                   </h1>
                   <p className="text-gray-600 dark:text-gray-400">
@@ -204,7 +204,7 @@ export default function AdminDashboard() {
             </div>
             
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-6">
               <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
                 <div className="flex items-center">
                   <Users className="text-blue-600" size={24} />

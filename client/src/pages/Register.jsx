@@ -105,7 +105,7 @@ export default function Register() {
             <GraduationCap size={64} className="text-purple-600 dark:text-purple-400" />
           </motion.div>
           
-          <h2 className="text-4xl font-bold mb-2">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
             <GradientText>Join Smart Attendance</GradientText>
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300">
@@ -118,7 +118,7 @@ export default function Register() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          <GlassCard className="p-8">
+          <GlassCard className="p-4 sm:p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <motion.div

@@ -5,8 +5,8 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node --env-file=.env src/server.js",
     "seed": "node seed.js",
     "seed:fast": "node fastSeed.js",
     "reseed": "node reseed.js",

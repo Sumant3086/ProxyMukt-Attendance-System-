@@ -1,5 +1,5 @@
 import Attendance from '../models/Attendance.js';
-import { PEER_VALIDATION, TRAVEL_DETECTION } from '../config/constants.js';
+import { PEER_VALIDATION, TRAVEL_DETECTION, GEOFENCE_RULES } from '../config/constants.js';
 import { calculateDistance } from './geofencing.js';
 
 /**
@@ -228,7 +228,6 @@ export const detectImpossibleTravel = async (studentId, currentLocation, current
 export const getSmartGeofenceRadius = (sessionType = 'CLASSROOM', customRadius = null) => {
   if (customRadius) return customRadius;
 
-  const { GEOFENCE_RULES } = require('../config/constants.js');
   const rule = GEOFENCE_RULES[sessionType] || GEOFENCE_RULES.CLASSROOM;
   return rule.radius;
 };
@@ -239,7 +238,6 @@ export const getSmartGeofenceRadius = (sessionType = 'CLASSROOM', customRadius =
  * @returns {Boolean}
  */
 export const isLivenessRequired = (sessionType = 'CLASSROOM') => {
-  const { GEOFENCE_RULES } = require('../config/constants.js');
   const rule = GEOFENCE_RULES[sessionType] || GEOFENCE_RULES.CLASSROOM;
   return rule.requireLiveness;
 };

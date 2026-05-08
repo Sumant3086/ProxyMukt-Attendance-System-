@@ -253,21 +253,21 @@ html {
     background-attachment: fixed;
   }
   
-  /* Enhanced Typography */
+  /* Enhanced Typography — mobile-first sizes */
   h1, h2, h3, h4, h5, h6 {
     @apply font-bold tracking-tight;
   }
-  
+
   h1 {
-    @apply text-4xl md:text-5xl;
+    @apply text-2xl sm:text-3xl lg:text-4xl;
   }
-  
+
   h2 {
-    @apply text-3xl md:text-4xl;
+    @apply text-xl sm:text-2xl lg:text-3xl;
   }
-  
+
   h3 {
-    @apply text-2xl md:text-3xl;
+    @apply text-lg sm:text-xl lg:text-2xl;
   }
   
   /* Enhanced Buttons */
@@ -458,5 +458,66 @@ html {
   /* Loading States */
   .skeleton {
     @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+  }
+
+  /* ── Responsive layout helpers ─────────────────────────── */
+
+  /* Standard page content wrapper — responsive padding */
+  .page-content {
+    @apply flex-1 p-4 sm:p-6 lg:p-8 min-w-0;
+  }
+
+  /* Page title — responsive size */
+  .page-title {
+    @apply text-2xl sm:text-3xl lg:text-4xl font-bold;
+  }
+
+  /* Page subtitle */
+  .page-subtitle {
+    @apply text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1;
+  }
+
+  /* Responsive table wrapper — enables horizontal scroll on mobile */
+  .table-wrapper {
+    @apply w-full overflow-x-auto rounded-xl;
+  }
+
+  /* Responsive filter / action bar */
+  .filter-bar {
+    @apply flex flex-col sm:flex-row gap-3 sm:items-center sm:flex-wrap;
+  }
+
+  /* Responsive modal container */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4;
+  }
+
+  .modal-content {
+    @apply bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto;
+  }
+
+  /* Responsive stats grid */
+  .stats-grid {
+    @apply grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6;
+  }
+
+  /* Responsive 2-col grid */
+  .grid-2 {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6;
+  }
+
+  /* Responsive 3-col grid */
+  .grid-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+  }
+
+  /* Prevent text overflow in table cells */
+  .td-truncate {
+    @apply max-w-[120px] sm:max-w-xs truncate;
+  }
+
+  /* Responsive button group */
+  .btn-group {
+    @apply flex flex-wrap gap-2 sm:gap-3;
   }
 }

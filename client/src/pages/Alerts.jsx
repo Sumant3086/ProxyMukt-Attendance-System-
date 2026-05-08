@@ -57,22 +57,22 @@ export default function Alerts() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Security Alerts
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">Monitor security and attendance alerts</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">Monitor security and attendance alerts</p>
               </div>
-              <button className="btn-secondary">
+              <button className="btn-secondary self-start sm:self-auto text-sm">
                 Mark All as Read
               </button>
             </div>
-            
+
             {/* Alert Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
               <div className="card-elevated p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -129,9 +129,9 @@ export default function Alerts() {
                         !alert.read ? 'opacity-100' : 'opacity-60'
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3 flex-1">
-                          <Icon size={24} />
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                          <Icon size={20} className="flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-bold">{alert.title}</h3>

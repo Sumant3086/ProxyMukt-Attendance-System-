@@ -90,18 +90,21 @@ export default function AutoAttendance() {
 
       if (data.data.session) {
         setNearbySession(data.data);
-        if (data.data.withinRange && !data.data.alreadyMarked) {
-          setMessage(`✅ Session found nearby! You can mark auto-attendance for "${data.data.session.title}"`);
-          setMessageType('success');
-        } else if (data.data.alreadyMarked) {
-          setMessage(`ℹ️ You have already marked attendance for "${data.data.session.title}"`);
+        if (data.data.alreadyMarked) {
+          setMessage(`ℹ️ Attendance already marked for "${data.data.session.title}"`);
           setMessageType('info');
+        } else if (data.data.withinRange) {
+          setMessage(`✅ Session found! You can mark auto-attendance for "${data.data.session.title}"`);
+          setMessageType('success');
         } else {
-          setMessage(`📍 Session "${data.data.session.title}" found but you're ${Math.round(data.data.distance)}m away (max: ${data.data.session.location?.radius || 100}m)`);
+          const distanceText = data.data.distance !== null
+            ? `you're ${Math.round(data.data.distance)}m away (max: ${data.data.session.location?.radius || 100}m)`
+            : 'location not configured by instructor';
+          setMessage(`📍 Session "${data.data.session.title}" found but ${distanceText}`);
           setMessageType('info');
         }
       } else {
-        setMessage('ℹ️ No active sessions found in your area');
+        setMessage('ℹ️ No active location-based sessions found for your enrolled classes');
         setMessageType('info');
       }
     } catch (error) {
@@ -122,17 +125,20 @@ export default function AutoAttendance() {
       const deviceInfo = getDeviceInfo();
       const startTime = Date.now();
 
+      // No qrToken for auto-attendance — backend finds session by location
       const { data } = await axiosInstance.post('/attendance/mark', {
-        qrToken: nearbySession.session.qrToken,
         location: location,
         deviceInfo: deviceInfo,
-        autoMarked: true, // This tells backend it's auto-attendance
+        autoMarked: true,
       });
 
       const processingTime = Date.now() - startTime;
       setAttendanceMarked(true);
 
-      const successMsg = `🎉 AUTO-ATTENDANCE MARKED SUCCESSFULLY!\n\n📚 Session: ${data.data.sessionTitle}\n🏫 Class: ${data.data.className}\n👤 Student: ${data.data.studentName}\n📍 Distance: ${Math.round(nearbySession.distance)}m\n⚡ Processing Time: ${processingTime}ms`;
+      const distLine = nearbySession.distance !== null
+        ? `📍 Distance: ${Math.round(nearbySession.distance)}m\n`
+        : '';
+      const successMsg = `🎉 AUTO-ATTENDANCE MARKED SUCCESSFULLY!\n\n📚 Session: ${data.data.sessionTitle}\n🏫 Class: ${data.data.className}\n👤 Student: ${data.data.studentName}\n${distLine}⚡ Processing Time: ${processingTime}ms`;
       setMessage(successMsg);
       setMessageType('success');
 
@@ -275,7 +281,11 @@ export default function AutoAttendance() {
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin size={16} />
-                        <span>Distance: {Math.round(nearbySession.distance)}m</span>
+                        <span>
+                          {nearbySession.distance !== null
+                            ? `Distance: ${Math.round(nearbySession.distance)}m`
+                            : 'Location: No coordinates set'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock size={16} />

@@ -32,28 +32,28 @@ export default function Timetable() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 sm:mb-8">
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   Class Timetable
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">Your weekly class schedule</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">Your weekly class schedule</p>
               </div>
-              <div className="flex gap-3">
-                <button className="btn-secondary flex items-center gap-2">
-                  <Download size={18} />
+              <div className="flex flex-wrap gap-2 sm:gap-3">
+                <button className="btn-secondary flex items-center gap-1.5 text-sm py-2">
+                  <Download size={16} />
                   <span>Export</span>
                 </button>
-                <button className="btn-primary">
-                  Sync with Google Calendar
+                <button className="btn-primary text-sm py-2">
+                  Sync Calendar
                 </button>
               </div>
             </div>
-            
+
             {/* View Toggle */}
-            <div className="flex gap-2 mb-8">
+            <div className="flex flex-wrap gap-2 mb-6 sm:mb-8">
               {['week', 'month'].map((v) => (
                 <button
                   key={v}
@@ -69,8 +69,8 @@ export default function Timetable() {
               ))}
             </div>
             
-            {/* Weekly Schedule */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* Weekly Schedule — 1 col mobile, 2 col tablet, 5 col desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {Object.entries(schedule).map(([day, classes]) => (
                 <div key={day} className="card-elevated p-4">
                   <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-white">{day}</h3>

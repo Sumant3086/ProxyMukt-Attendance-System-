@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 
 const QR_ROTATION_INTERVAL = parseInt(process.env.QR_ROTATION_INTERVAL) || 20000; // 20 seconds
+
+if (!process.env.QR_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('❌ FATAL: QR_SECRET env var is not set. QR tokens are insecure in production!');
+  process.exit(1);
+}
 const QR_SECRET = process.env.QR_SECRET || 'default-qr-secret-change-me';
 const QR_VALIDITY_WINDOW = 5; // Allow 5 intervals = 100 seconds (1 min 40 sec)
 

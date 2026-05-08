@@ -1,5 +1,10 @@
 import jwt from 'jsonwebtoken';
 
+if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('❌ FATAL: JWT_ACCESS_SECRET (or JWT_SECRET) env var is not set. Auth tokens are insecure in production!');
+  process.exit(1);
+}
+
 // Fallback to JWT_SECRET if specific secrets not provided
 const getAccessSecret = () => process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'fallback_secret_change_in_production';
 const getRefreshSecret = () => process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback_secret_change_in_production';

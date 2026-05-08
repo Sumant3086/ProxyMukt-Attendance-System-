@@ -26,17 +26,17 @@ export default function Leaderboard() {
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
           <div className="max-w-5xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Attendance Leaderboard
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">See how you rank among your peers</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">See how you rank among your peers</p>
             </div>
-            
+
             {/* Filter */}
-            <div className="flex gap-2 mb-8">
+            <div className="flex flex-wrap gap-2 mb-6 sm:mb-8">
               {['class', 'department', 'university'].map((f) => (
                 <button
                   key={f}
@@ -52,19 +52,32 @@ export default function Leaderboard() {
               ))}
             </div>
             
-            {/* Top 3 Podium */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            {/* Top 3 Podium — single column on mobile, 3-col on md+ */}
+            <div className="hidden sm:grid grid-cols-3 gap-4 mb-6 sm:mb-8">
               {leaderboard.slice(0, 3).map((student, index) => (
                 <div
                   key={student.rank}
-                  className={`card-elevated p-6 text-center ${
-                    index === 0 ? 'md:order-2 transform md:scale-110' : index === 1 ? 'md:order-1' : 'md:order-3'
+                  className={`card-elevated p-4 sm:p-6 text-center ${
+                    index === 0 ? 'md:order-2 transform md:scale-105' : index === 1 ? 'md:order-1' : 'md:order-3'
                   }`}
                 >
-                  <div className="mb-4">{getRankIcon(student.rank)}</div>
-                  <p className="font-bold text-lg text-gray-900 dark:text-white mb-1">{student.name}</p>
-                  <p className="text-3xl font-bold text-indigo-600 mb-1">{student.attendance}%</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{student.classes}</p>
+                  <div className="mb-3">{getRankIcon(student.rank)}</div>
+                  <p className="font-bold text-sm sm:text-lg text-gray-900 dark:text-white mb-1 truncate">{student.name}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-indigo-600 mb-1">{student.attendance}%</p>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{student.classes}</p>
+                </div>
+              ))}
+            </div>
+            {/* Mobile: show top 3 as list items instead of podium */}
+            <div className="sm:hidden space-y-3 mb-6">
+              {leaderboard.slice(0, 3).map((student) => (
+                <div key={student.rank} className="card-elevated p-4 flex items-center gap-4">
+                  <div className="w-10 flex justify-center">{getRankIcon(student.rank)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-900 dark:text-white truncate">{student.name}</p>
+                    <p className="text-xs text-gray-500">{student.classes}</p>
+                  </div>
+                  <p className="text-xl font-bold text-indigo-600">{student.attendance}%</p>
                 </div>
               ))}
             </div>

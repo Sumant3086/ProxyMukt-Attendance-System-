@@ -1,5 +1,5 @@
 services:
-  # Backend API Service (API only, no frontend)
+  # Backend API Service
   - type: web
     name: proxymukt-backend
     env: node
@@ -19,7 +19,7 @@ services:
       # - JWT_SECRET
       # - JWT_ACCESS_SECRET
       # - JWT_REFRESH_SECRET
-      # - QR_SECRET  
+      # - QR_SECRET
       # - MONGODB_URI
       # - ADMIN_NAME
       # - ADMIN_EMAIL
@@ -34,4 +34,21 @@ services:
       # - RATE_LIMIT_WINDOW
       # - RATE_LIMIT_MAX_ATTEMPTS
     healthCheckPath: /health
+    autoDeploy: true
+
+  # Frontend Static Site
+  - type: web
+    name: proxymukt-frontend
+    env: static
+    plan: free
+    region: oregon
+    buildCommand: cd client && npm ci && npm run build
+    staticPublishPath: ./client/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://proxymuktbackend.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     autoDeploy: true

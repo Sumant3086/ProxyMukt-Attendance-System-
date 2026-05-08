@@ -23,6 +23,7 @@ export default function StudentDashboard() {
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
+  const [showAttendanceSuccess, setShowAttendanceSuccess] = useState(false);
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -56,10 +57,17 @@ export default function StudentDashboard() {
     }
   }, [isAuthenticated]);
   
-  // Refresh when navigating back from auto-attendance
+  // Refresh when navigating back from attendance marking
   useEffect(() => {
     if (location.state?.refresh) {
       fetchData();
+      
+      // Show success message if attendance was marked
+      if (location.state?.attendanceMarked) {
+        setShowAttendanceSuccess(true);
+        setTimeout(() => setShowAttendanceSuccess(false), 5000); // Hide after 5 seconds
+      }
+      
       // Clear the state
       navigate(location.pathname, { replace: true, state: {} });
     }
@@ -132,6 +140,27 @@ export default function StudentDashboard() {
     <div className="min-h-screen relative">
       <AnimatedBackground />
       <SessionNearbyNotification />
+      
+      {/* Attendance Success Notification */}
+      {showAttendanceSuccess && (
+        <motion.div
+          initial={{ opacity: 0, y: -50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -50, scale: 0.9 }}
+          className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl shadow-2xl border border-green-400"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+              <Award size={18} />
+            </div>
+            <div>
+              <p className="font-bold text-lg">🎉 Attendance Marked Successfully!</p>
+              <p className="text-green-100 text-sm">Your attendance has been recorded and updated in the dashboard</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+      
       <Navbar />
       <div className="flex">
         <Sidebar />

@@ -96,7 +96,7 @@ export default function ScanQR() {
 
   const fetchSessionRequirements = async (qrToken) => {
     try {
-      setMessage('✓ QR Code detected! Checking requirements...');
+      setMessage('✅ QR Code detected! Checking session requirements...');
       setMessageType('success');
       
       // Decode QR to get session ID
@@ -106,20 +106,24 @@ export default function ScanQR() {
       
       // Get session details
       const { data } = await axiosInstance.get(`/sessions/${payload.sid}`);
-      const requirements = data.data.session.verificationRequirements;
+      const session = data.data.session;
+      const requirements = session.verificationRequirements;
+      
+      console.log('📋 Session Requirements:', requirements);
       
       // Check what's required
       if (requirements?.faceVerification) {
-        setMessage('✓ QR verified! Now checking face liveness...');
+        setMessage('✅ QR verified! Face liveness verification required...');
         setShowFaceVerification(true);
       } else {
-        // No face verification required, proceed to mark attendance
-        setMessage('✓ QR verified! Marking attendance...');
+        // No face verification required, proceed directly to mark attendance
+        setMessage('✅ QR verified! All requirements satisfied. Marking attendance...');
         await markAttendance(qrToken);
       }
     } catch (error) {
-      console.error('Error fetching requirements:', error);
-      setMessage('Error checking requirements. Proceeding with attendance...');
+      console.error('Error fetching session requirements:', error);
+      setMessage('⚠️ Error checking requirements. Proceeding with attendance marking...');
+      setMessageType('info');
       await markAttendance(qrToken);
     }
   };
@@ -130,14 +134,14 @@ export default function ScanQR() {
     setShowFaceVerification(false);
     
     if (result?.bypassed) {
-      setMessage('⚠️ Face verification skipped. Marking attendance...');
+      setMessage('⚠️ Face verification was skipped by faculty settings. Marking attendance...');
     } else if (result?.note) {
-      setMessage('✓ Live face detected! Marking attendance...');
+      setMessage('✅ Live face detected! All verifications complete. Marking attendance...');
     } else {
-      setMessage('✓ Face liveness confirmed! Marking attendance...');
+      setMessage('✅ Face liveness confirmed! All requirements satisfied. Marking attendance...');
     }
     
-    setMessageType('info');
+    setMessageType('success');
     if (pendingQrToken) {
       await markAttendance(pendingQrToken);
     }
@@ -146,11 +150,17 @@ export default function ScanQR() {
   const handleFaceFailed = async () => {
     // Face verification failed - block attendance if required
     setShowFaceVerification(false);
-    setMessage('❌ Face liveness verification failed. Please try again.');
+    setMessage('❌ Face liveness verification failed. Please ensure you are looking at the camera and try again.');
     setMessageType('error');
     setPendingQrToken(null);
     setFaceVerified(false);
     setAttendanceMarked(false);
+    
+    // Allow retry after 3 seconds
+    setTimeout(() => {
+      setMessage('Ready to scan QR code again. Click "Start Camera" to retry.');
+      setMessageType('info');
+    }, 3000);
   };
 
   const getLocation = () => {
@@ -239,7 +249,7 @@ export default function ScanQR() {
       });
       
       // Show detailed success message
-      const successMsg = `✓ ${data.message}\n\nSession: ${data.data.sessionTitle}\nClass: ${data.data.className}`;
+      const successMsg = `✅ ATTENDANCE MARKED SUCCESSFULLY!\n\n📚 Session: ${data.data.sessionTitle}\n🏫 Class: ${data.data.className}\n👤 Student: ${data.data.studentName}`;
       setMessage(successMsg);
       setMessageType('success');
       
@@ -247,16 +257,21 @@ export default function ScanQR() {
       if (data.data?.locationVerification && data.data.locationVerification.distance !== null) {
         setTimeout(() => {
           setMessage(
-            `${successMsg}\n\nLocation: ${data.data.locationVerification.distance}m from session`
+            `${successMsg}\n\n📍 Location: ${data.data.locationVerification.distance}m from session location`
           );
         }, 1000);
       }
       
       stopCamera();
       
+      // Show success message for 3 seconds then redirect
       setTimeout(() => {
-        navigate('/student', { state: { refresh: true } });
+        setMessage('✅ Redirecting to dashboard...');
+        setTimeout(() => {
+          navigate('/student', { state: { refresh: true, attendanceMarked: true } });
+        }, 1000);
       }, 3000);
+      
     } catch (error) {
       const errorData = error.response?.data;
       
@@ -266,11 +281,11 @@ export default function ScanQR() {
       setFaceVerified(false);
       
       if (errorData?.requiresLocation) {
-        setMessage('Location verification is required for this session. Please enable location access.');
+        setMessage('❌ Location verification is required for this session. Please enable location access and try again.');
       } else if (errorData?.details) {
-        setMessage(`${errorData.message}: ${errorData.details.reason || JSON.stringify(errorData.details)}`);
+        setMessage(`❌ ${errorData.message}: ${errorData.details.reason || JSON.stringify(errorData.details)}`);
       } else {
-        setMessage(errorData?.message || 'Failed to mark attendance');
+        setMessage(`❌ ${errorData?.message || 'Failed to mark attendance. Please try again.'}`);
       }
       
       setMessageType('error');
@@ -303,9 +318,12 @@ export default function ScanQR() {
       // Listen for attendance confirmation
       newSocket.on('attendance-confirmed', (data) => {
         console.log('✅ Attendance confirmed via WebSocket:', data);
-        setMessage('✓ Attendance confirmed! Redirecting...');
-        setMessageType('success');
-        setTimeout(() => navigate('/student', { state: { refresh: true } }), 1500);
+        if (!attendanceMarked) {
+          setMessage('✅ Attendance confirmed! Redirecting to dashboard...');
+          setMessageType('success');
+          setAttendanceMarked(true);
+          setTimeout(() => navigate('/student', { state: { refresh: true, attendanceMarked: true } }), 2000);
+        }
       });
       
       return () => {
@@ -561,7 +579,7 @@ export default function ScanQR() {
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-4 text-center font-medium">
                 {!scanning && !showFaceVerification && '📱 Point your camera at the QR code displayed by your instructor'}
                 {scanning && !showFaceVerification && '⏳ Hold steady - QR code will be detected automatically'}
-                {showFaceVerification && '👤 Complete face liveness check to proceed'}
+                {showFaceVerification && '👤 Complete face liveness verification to mark attendance'}
               </p>
             </div>
           </div>

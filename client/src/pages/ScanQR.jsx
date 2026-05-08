@@ -15,7 +15,7 @@ import {
   QR_SCAN_INTERVAL,
   LOCATION_TIMEOUT,
   WEBSOCKET_RECONNECT_DELAY,
-  DEFAULT_WEBSOCKET_URL,
+  getSocketURL,
 } from '../lib/constants';
 
 /**
@@ -68,10 +68,7 @@ export default function ScanQR() {
     const role = authData.state?.user?.role;
     if (!userId) return;
 
-    const socket = io(
-      import.meta.env.VITE_API_URL?.replace('/api', '') || DEFAULT_WEBSOCKET_URL,
-      { auth: { userId, role } }
-    );
+    const socket = io(getSocketURL(), { auth: { userId, role } });
 
     socket.on('attendance-confirmed', () => {
       if (!attendanceMarkedRef.current) {

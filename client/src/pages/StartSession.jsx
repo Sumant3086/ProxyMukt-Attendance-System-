@@ -7,7 +7,7 @@ import QRDisplay from '../components/QRDisplay';
 import Loader from '../components/Loader';
 import axiosInstance, { clearCache } from '../utils/axiosInstance';
 import { Users, Clock, StopCircle, Settings, CheckCircle, XCircle, QrCode, Zap, Lock, MapPin, Pause, Play, Download, Send, List, Bell } from 'lucide-react';
-import { DEFAULT_WEBSOCKET_URL } from '../lib/constants';
+import { getSocketURL } from '../lib/constants';
 
 export default function StartSession() {
   const { id } = useParams();
@@ -49,12 +49,7 @@ export default function StartSession() {
     const userId = authData.state?.user?._id;
     const role = authData.state?.user?.role;
     
-    const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || DEFAULT_WEBSOCKET_URL, {
-      auth: {
-        userId,
-        role
-      }
-    });
+    const newSocket = io(getSocketURL(), { auth: { userId, role } });
     
     // Monitor WebSocket connection status
     newSocket.on('connect', () => {

@@ -13,7 +13,7 @@ import SessionNearbyNotification from '../components/SessionNearbyNotification';
 import { AttendanceTrendChart } from '../components/AttendanceChart';
 import axiosInstance from '../utils/axiosInstance';
 import { QrCode, BookOpen, Calendar, BarChart3, TrendingUp, Award } from 'lucide-react';
-import { DEFAULT_WEBSOCKET_URL, ATTENDANCE_SUCCESS_DISPLAY } from '../lib/constants';
+import { getSocketURL, ATTENDANCE_SUCCESS_DISPLAY } from '../lib/constants';
 import { ATTENDANCE_THRESHOLD_GOOD, ATTENDANCE_THRESHOLD_WARNING, RECENT_ATTENDANCE_LIMIT } from '../lib/constants';
 
 export default function StudentDashboard() {
@@ -35,9 +35,7 @@ export default function StudentDashboard() {
       const userId = authData.state?.user?._id;
       const role = authData.state?.user?.role;
       
-      const newSocket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || DEFAULT_WEBSOCKET_URL, {
-        auth: { userId, role }
-      });
+      const newSocket = io(getSocketURL(), { auth: { userId, role } });
       
       setSocket(newSocket);
       

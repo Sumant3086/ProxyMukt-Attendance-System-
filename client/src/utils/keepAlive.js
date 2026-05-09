@@ -5,7 +5,9 @@
  */
 
 const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes (more frequent to prevent cold starts)
-const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_URL = import.meta.env.PROD
+  ? window.location.origin
+  : (import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001');
 
 let pingInterval = null;
 let isActive = false;

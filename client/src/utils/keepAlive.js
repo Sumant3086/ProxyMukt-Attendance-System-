@@ -1,105 +1,50 @@
 /**
  * Keep-Alive Service
- * Prevents Render free tier cold starts by pinging server every 5 minutes
- * Uses lightweight health endpoint to minimize resource usage
+ * Pings the backend every 4 minutes so Render free tier never hits its
+ * 15-minute inactivity sleep threshold while the app is open in a browser tab.
  */
 
-const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes (more frequent to prevent cold starts)
+const PING_INTERVAL = 4 * 60 * 1000; // 4 minutes
 const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001';
 
 let pingInterval = null;
 let isActive = false;
 
-/**
- * Ping server to keep it awake
- */
 async function pingServer() {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-    
-    const response = await fetch(`${API_URL}/health`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('🏓 Keep-alive ping successful', data.uptime ? `(uptime: ${Math.floor(data.uptime)}s)` : '');
+    const id = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${API_URL}/health`, { signal: controller.signal });
+    clearTimeout(id);
+    if (res.ok) {
+      const d = await res.json();
+      console.log('🏓 Keep-alive ping OK', d.uptime ? `(${Math.floor(d.uptime)}s up)` : '');
     }
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.warn('⚠️ Keep-alive ping timeout');
-    } else {
-      console.warn('⚠️ Keep-alive ping failed:', error.message);
-    }
+  } catch {
+    // Silent — server might be sleeping, axiosInstance retry handles it
   }
 }
 
-/**
- * Start keep-alive service
- */
 export function startKeepAlive() {
   if (isActive) return;
-  
   isActive = true;
-  console.log('🚀 Keep-alive service started (ping every 5 minutes)');
-  
-  // Ping immediately
+
+  // Immediate ping wakes the server as soon as the app loads in production
   pingServer();
-  
-  // Then ping every 5 minutes
+
   pingInterval = setInterval(pingServer, PING_INTERVAL);
-  
-  // Also ping when user becomes active after being idle
+
+  // Re-ping when the user switches back to this tab after being away
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && isActive) {
-      pingServer();
-    }
+    if (!document.hidden && isActive) pingServer();
   });
 }
 
-/**
- * Stop keep-alive service
- */
 export function stopKeepAlive() {
   if (!isActive) return;
-  
   isActive = false;
-  console.log('🛑 Keep-alive service stopped');
-  
   if (pingInterval) {
     clearInterval(pingInterval);
     pingInterval = null;
-  }
-}
-
-/**
- * Check if server is awake
- */
-export async function checkServerStatus() {
-  try {
-    const startTime = Date.now();
-    const response = await fetch(`${API_URL}/health`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const duration = Date.now() - startTime;
-    
-    return {
-      isAwake: response.ok,
-      responseTime: duration,
-      isColdStart: duration > 5000, // > 5 seconds indicates cold start
-    };
-  } catch (error) {
-    return {
-      isAwake: false,
-      responseTime: null,
-      isColdStart: false,
-      error: error.message,
-    };
   }
 }

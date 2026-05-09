@@ -4,34 +4,31 @@ import { useAuthStore } from '../store/authStore';
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
   withCredentials: true,
-  timeout: 10000, // Reduced to 10 seconds
+  timeout: 30000, // 30 s — covers Render free tier cold start (can take 20-50 s)
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request cache for GET requests (2 minute TTL for faster responses)
+// GET cache — 2 minute TTL
 const requestCache = new Map();
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes (reduced from 5)
+const CACHE_TTL = 2 * 60 * 1000;
 
-// Request interceptor
+// ── Request interceptor ────────────────────────────────────────────
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    // Add request timestamp for performance monitoring
+
     config.metadata = { startTime: Date.now() };
-    
-    // Check cache for GET requests (except real-time data)
+
+    // Serve from cache for GET requests (skip real-time endpoints)
     if (config.method === 'get' && !config.url?.includes('check-nearby')) {
       const cacheKey = `${config.url}${JSON.stringify(config.params || {})}`;
       const cached = requestCache.get(cacheKey);
-      
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        console.log('📦 Cache hit:', config.url);
         config.adapter = () => Promise.resolve({
           data: cached.data,
           status: 200,
@@ -41,25 +38,16 @@ axiosInstance.interceptors.request.use(
         });
       }
     }
-    
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response interceptor
+// ── Response interceptor ───────────────────────────────────────────
 axiosInstance.interceptors.response.use(
   (response) => {
-    // Log response time
-    const startTime = response.config?.metadata?.startTime;
-    if (startTime) {
-      const duration = Date.now() - startTime;
-      if (duration > 1000) {
-        console.warn(`⚠️ Slow request (${duration}ms):`, response.config.url);
-      }
-    }
-    
-    // Cache GET responses
+    // Cache successful GET responses
     if (response.config.method === 'get' && response.status === 200) {
       const cacheKey = `${response.config.url}${JSON.stringify(response.config.params || {})}`;
       requestCache.set(cacheKey, {
@@ -67,65 +55,56 @@ axiosInstance.interceptors.response.use(
         headers: response.headers,
         timestamp: Date.now(),
       });
-      
-      // Clean old cache entries
       if (requestCache.size > 50) {
-        const oldestKey = requestCache.keys().next().value;
-        requestCache.delete(oldestKey);
+        requestCache.delete(requestCache.keys().next().value);
       }
     }
-    
     return response;
   },
   async (error) => {
     const originalRequest = error.config;
-    
-    // Log error details
-    if (error.response) {
-      console.error(`❌ API Error (${error.response.status}):`, originalRequest.url);
-    } else if (error.request) {
-      console.error('❌ Network Error:', originalRequest.url);
+
+    // ── Retry once on network/timeout errors (Render cold start) ──
+    // A network error or timeout usually means the backend is still waking up.
+    // Wait 5 s then retry once — by then the server is usually ready.
+    const isNetworkError = !error.response && error.request;
+    const isTimeout = error.code === 'ECONNABORTED';
+    if ((isNetworkError || isTimeout) && !originalRequest._coldStartRetry) {
+      originalRequest._coldStartRetry = true;
+      await new Promise((r) => setTimeout(r, 5000));
+      return axiosInstance(originalRequest);
     }
-    
-    // Don't try to refresh token on login/register endpoints
-    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
-                          originalRequest.url?.includes('/auth/register') ||
-                          originalRequest.url?.includes('/auth/refresh');
-    
-    // If 401 and not already retried and not an auth endpoint
+
+    // ── Token refresh on 401 ───────────────────────────────────────
+    const isAuthEndpoint =
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/register') ||
+      originalRequest.url?.includes('/auth/refresh');
+
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
-      
       try {
         const { data } = await axios.post(
           `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/auth/refresh`,
           {},
           { withCredentials: true }
         );
-        
         useAuthStore.getState().setToken(data.data.accessToken);
         originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
-        
         return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        // Only logout and redirect if we're not already on login/register page
+      } catch {
         const currentPath = window.location.pathname;
         if (currentPath !== '/login' && currentPath !== '/register') {
           useAuthStore.getState().logout();
           window.location.href = '/login';
         }
-        return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
 
-// Clear cache function (call after mutations)
-export const clearCache = () => {
-  requestCache.clear();
-  console.log('🗑️ Request cache cleared');
-};
+export const clearCache = () => requestCache.clear();
 
 export default axiosInstance;

@@ -16,7 +16,7 @@ services:
         value: 10000
       - key: CLIENT_URL
         value: https://proxymukt.onrender.com
-      # Add secrets in Render dashboard (not here):
+      # Secrets — set these in Render dashboard, not here:
       # MONGODB_URI, JWT_SECRET, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, QR_SECRET
       # ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD
       # ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET
@@ -26,6 +26,8 @@ services:
 
   # ── Frontend Static Site ──────────────────────────────────────────────────────
   # URL: https://proxymukt.onrender.com
+  # SPA routing is handled by client/public/_redirects (checked after file lookup,
+  # so asset files like /assets/*.js are never intercepted).
   - type: web
     name: proxymukt
     env: static
@@ -37,8 +39,4 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://proxymuktbackend.onrender.com/api
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
     autoDeploy: true

@@ -11,6 +11,7 @@
     "seed:fast": "node fastSeed.js",
     "reseed": "node reseed.js",
     "build": "cd ../client && npm install --production=false && node node_modules/vite/bin/vite.js build",
+    "build:client": "cd ../client && npm install --production=false && node node_modules/vite/bin/vite.js build",
     "deploy": "npm run build && npm start"
   },
   "keywords": [

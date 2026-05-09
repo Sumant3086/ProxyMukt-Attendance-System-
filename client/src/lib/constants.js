@@ -43,12 +43,14 @@ export const ATTENDANCE_SUCCESS_DISPLAY = 5000;  // How long to show attendance 
 // ============================================
 // API ENDPOINTS AND URLS
 // ============================================
-export const DEFAULT_WEBSOCKET_URL = 'http://localhost:5001';  // Fallback WebSocket URL (dev only)
+export const DEFAULT_WEBSOCKET_URL = 'http://localhost:5001';
 
-// In production the socket server is on the same origin as the page.
-// In development it runs on localhost:5001.
+// Derives the WebSocket host from VITE_API_URL (strips the /api suffix).
+// In dev: falls back to localhost:5001.
+// In prod: VITE_API_URL=https://proxymuktbackend.onrender.com/api
+//          → socket connects to https://proxymuktbackend.onrender.com
 export const getSocketURL = () =>
-  (typeof window !== 'undefined' && import.meta.env.PROD)
-    ? window.location.origin
+  import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace('/api', '')
     : DEFAULT_WEBSOCKET_URL;
 export const FACE_API_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';  // Face detection model URL

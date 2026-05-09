@@ -6,9 +6,6 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync } from 'fs';
 import connectDB from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
@@ -241,28 +238,25 @@ app.use('/api/*', (req, res) => {
   });
 });
 
-// Serve React frontend (production: client/dist built during deploy)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const clientDist = join(__dirname, '..', '..', 'client', 'dist');
+// Root info endpoint
+app.get('/', (_req, res) => {
+  res.json({
+    message: 'ProxyMukt API Server',
+    version: '2.0.0',
+    status: 'running',
+    frontend: 'https://proxymukt.onrender.com',
+    timestamp: new Date().toISOString(),
+  });
+});
 
-if (existsSync(clientDist)) {
-  // Serve static assets (JS, CSS, images) with 1-day cache
-  app.use(express.static(clientDist, { maxAge: '1d' }));
-
-  // SPA catch-all: every non-API route returns index.html so React Router works on refresh
-  app.get('*', (_req, res) => {
-    res.sendFile(join(clientDist, 'index.html'));
+// Catch-all for any other non-API routes
+app.use('*', (_req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found. This is an API-only server.',
+    hint: 'Frontend: https://proxymukt.onrender.com',
   });
-} else {
-  // Development / API-only mode (no built frontend present)
-  app.get('/', (_req, res) => {
-    res.json({ message: 'ProxyMukt API Server', version: '2.0.0', status: 'running' });
-  });
-  app.use('*', (_req, res) => {
-    res.status(404).json({ success: false, message: 'Route not found.' });
-  });
-}
+});
 
 // Error handler (must be last)
 app.use(errorHandler);

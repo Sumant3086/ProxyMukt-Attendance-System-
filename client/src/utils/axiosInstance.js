@@ -1,10 +1,8 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-// In production the frontend is served from the same Express server,
-// so /api resolves to the correct backend without any env var.
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5001/api'),
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
   withCredentials: true,
   timeout: 10000, // Reduced to 10 seconds
   headers: {
@@ -100,7 +98,7 @@ axiosInstance.interceptors.response.use(
       
       try {
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5001/api')}/auth/refresh`,
+          `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/auth/refresh`,
           {},
           { withCredentials: true }
         );

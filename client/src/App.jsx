@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
 import Loader from './components/Loader';
@@ -98,7 +98,7 @@ function App() {
   };
   
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <HashRouter>
       <Routes>
         <Route path="/" element={isAuthenticated ? getDashboard() : <Home />} />
         <Route path="/home" element={<Home />} />
@@ -451,7 +451,7 @@ function App() {
         {/* Catch-all route - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

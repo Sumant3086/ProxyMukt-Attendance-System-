@@ -1,5 +1,5 @@
 services:
-  # ── Backend API ─────────────────────────────────────────────────────────────
+  # ── Backend API ──────────────────────────────────────────────────────────────
   # URL: https://proxymuktbackend.onrender.com
   - type: web
     name: proxymuktbackend
@@ -16,23 +16,24 @@ services:
         value: 10000
       - key: CLIENT_URL
         value: https://proxymukt.onrender.com
-      # Set the following in the Render dashboard (not here — keep secrets out of git):
-      # MONGODB_URI, JWT_SECRET, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, QR_SECRET,
-      # ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD,
-      # ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET,
+      # Add secrets in Render dashboard (not here):
+      # MONGODB_URI, JWT_SECRET, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, QR_SECRET
+      # ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD
+      # ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET
       # EMAIL_SERVICE, EMAIL_USER, EMAIL_PASSWORD, EMAIL_FROM
     healthCheckPath: /health
     autoDeploy: true
 
-  # ── Frontend Static Site ─────────────────────────────────────────────────────
+  # ── Frontend Static Site ──────────────────────────────────────────────────────
   # URL: https://proxymukt.onrender.com
   - type: web
     name: proxymukt
     env: static
     plan: free
     region: oregon
-    buildCommand: cd client && npm install --production=false && node node_modules/vite/bin/vite.js build
-    staticPublishPath: ./client/dist
+    rootDir: client
+    buildCommand: npm install --production=false && node node_modules/vite/bin/vite.js build
+    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         value: https://proxymuktbackend.onrender.com/api
